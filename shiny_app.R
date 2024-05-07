@@ -18,7 +18,7 @@ mean_fun_point <- function(x, values = FALSE, type = "l", lty = 1,
                    type = 'scatter', mode = 'lines',
                    name = paste("Group", i))
   }
-
+  
   p <- layout(p, xaxis = list(title = "t"), yaxis = list(title = "FA"),
               title = "Mean functions by group")
   return(p)
@@ -32,7 +32,7 @@ ssa_point <- function(x, values = FALSE,
   ssa <- n * rowSums((means_gr - means_all)^2)
   p <- plot_ly()
   p <- add_trace(p, x = 1:length(ssa), y = ssa,
-                   type = 'scatter', mode = 'lines')
+                 type = 'scatter', mode = 'lines')
   p <- layout(p, xaxis = list(title = "t"),
               title = "SSA(t)")
   return(p)
@@ -80,65 +80,65 @@ f_point <- function(x, values = FALSE,
 ui <- fluidPage(
   
   titlePanel("Uploading Files"),
-  
-  # Sidebar layout with input and output definitions ----
   sidebarLayout(
-    
-    # Sidebar panel for inputs ----
     sidebarPanel(
-      
-      # Input: Select a file ----
       fileInput("file1", "Choose CSV File",
                 multiple = FALSE,
                 accept = c("text/csv",
                            "text/comma-separated-values,text/plain",
                            ".csv")),
-      
-      # Horizontal line ----
       tags$hr(),
-      
-      # Input: Checkbox if file has header ----
       checkboxInput("header", "Header", TRUE),
-      
-      # Input: Select separator ----
       radioButtons("sep", "Separator",
                    choices = c(Comma = ",",
                                Semicolon = ";",
                                Tab = "\t"),
                    selected = ","),
-      
-      # Input: Select quotes ----
       radioButtons("quote", "Quote",
                    choices = c(None = "",
                                "Double Quote" = '"',
                                "Single Quote" = "'"),
                    selected = '"'),
-      
-      # Horizontal line ----
       tags$hr(),
-      
-      # Input: Select number of rows to display ----
       radioButtons("disp", "Display",
                    choices = c(Head = "head",
                                All = "all"),
                    selected = "head")
       
     ),
-    
-    # Main panel for displaying outputs ----
     mainPanel(
-      
-      # Output: Data file ----
-      plotlyOutput("mean_functions"),
-      plotlyOutput("ssa_statistics"),
-      plotlyOutput("f_statistics")#,
-      #textOutput("rmfanova")
+      tabsetPanel(id = "tabs",
+                  tabPanel(
+                    title = "Data set",
+                    DT::dataTableOutput("data_table")
+                  ),
+                  tabPanel(
+                    title = "Data visualisation",
+                    uiOutput("input_df_plots")
+                  ),
+                  tabPanel(
+                    title = "Statistical plots",
+                    plotlyOutput("mean_functions"),
+                    plotlyOutput("ssa_statistics"),
+                    plotlyOutput("f_statistics")
+                  ),
+                  tabPanel(
+                    title = "rmfanova Summary",
+                    # conditionalPanel(
+                    #   condition = "!output.loaded",
+                    #  # condition = "output.loaded == false",
+                    #   #HTML('<img src="loading.gif" width="50" height="50" alt="loading...">')
+                    #   tags$img(src = "loading.png", width = 50, height = 50, alt = "loading...")
+                    # ),
+                    verbatimTextOutput("rmfanova")
+                  )
+      )
     )
-    
   )
 )
 
 server <- function(input, output) {
+  #output$loaded <- reactiveVal(FALSE)
   data <- reactive({
     req(input$file1)
     
@@ -147,89 +147,76 @@ server <- function(input, output) {
                    sep = input$sep,
                    quote = input$quote)
     df[, -1] <- sapply(df[, -1], as.numeric)
-    groups <- unique(df[, 1])
-
-    return(list(df = df, groups = groups))
+    
+    splited_df <- split(df[, -1], df[, 1]) #split by first column
+    matrix <- lapply(splited_df, as.matrix)
+    
+    return(list(df = df, matrix = matrix))
   })
-  
-  means <-reactive({
+  output$data_table<-DT::renderDataTable({
+    req(data())
+    return(data()$df)
+  })
+  output$input_df_plots <- renderUI({
     req(data())
     df <- data()$df
-    groups<-data()$groups
+    group_names <- unique(df[,1])
     
-    mean_gr <- data.frame(matrix(nrow = length(groups), ncol = ncol(df) - 1))
-    
-    for (i in seq_along(groups)) {
-      group_data <- df[df[, 1] == groups[i], -1]  # Exclude group column
-      mean_values <- colMeans(group_data)
-      mean_gr[i, ] <- mean_values
-      n<-nrow(df[df[, 1] == groups[i],])
-    }
-    #print(mean_gr)
-    mean_all<-colMeans(mean_gr)
-    
-    return(list(mean_gr = mean_gr, mean_all = mean_all,groups=groups,n=n))
+    plots <- lapply(1:length(group_names), function(i) {
+      group_data <- df[df[,1] == group_names[i], -1]
+      p <- plot_ly()
+      for (j in 1:nrow(group_data)) {
+        p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
+                       type = 'scatter', mode = 'lines', name = paste("Trajectory", j))
+      }
+      p <- layout(p, xaxis = list(title = "X-axis"), yaxis = list(title = "Y-axis"), 
+                  title = paste("Group", group_names[i]))
+      return(p)
+    })
+    return(plots)
   })
-  
   output$mean_functions <- renderPlotly({
-    # req(means())
-    # groups <- means()$groups
-    # mean_gr<-means()$mean_gr
-    # 
-    # p <- plot_ly()
-    # 
-    # for (i in seq_along(groups)) {
-    #   mean_values<-unlist(mean_gr[i, ])
-    #   p <- add_trace(p, x = 1:length(mean_values), y = mean_values, 
-    #                  type = 'scatter', mode = 'lines', 
-    #                  name = paste("Group", groups[i]))
-    # }
-    # 
-    # p <- layout(p, xaxis = list(title = "t"), yaxis = list(title = "FA"),
-    #             title = "Mean functions by group")
     req(data())
-    df <- data()$df
-    yy <- split(df[, -1], df[, 1]) #split by first column
-    yy <- lapply(yy,as.matrix)
+    yy <- data()$matrix
     p<-mean_fun_point(yy, values = FALSE, 
-                   col = 1:4, xlab = "t", ylab = "FA", xaxt = "n")
+                      col = 1:4, xlab = "t", ylab = "FA", xaxt = "n")
     return(p)
   })
   output$ssa_statistics<-renderPlotly({
-    # req(means())
-    # means_gr<-t(means()$mean_gr)
-    # means_all<-means()$mean_all
-    # n<-means()$n
-    # ssa <- n * rowSums((means_gr - means_all)^2)
-    # p <- plot_ly()
-    # p <- add_trace(p, x = 1:length(ssa), y = ssa, 
-    #                type = 'scatter', mode = 'lines')
-    # p <- layout(p, xaxis = list(title = "t"), #yaxis = list(title = "FA"),
-    #             title = "SSA(t)")
-    # return(p)
     req(data())
-    df <- data()$df
-    yy <- split(df[, -1], df[, 1]) #split by first column
-    yy <- lapply(yy,as.matrix)
-    ssa_point(yy, xlab = "t", xaxt = "n")
+    yy <- data()$matrix
     ssa<-ssa_point(yy, xlab = "t", xaxt = "n")
     return(ssa)
   })
   output$f_statistics<-renderPlotly({
     req(data())
-    df <- data()$df
-    yy <- split(df[, -1], df[, 1]) #split by first column
-    yy <- lapply(yy,as.matrix)
+    yy <- data()$matrix
     f<-f_point(yy, xlab = "t", xaxt = "n")
     return(f)
   })
-  output$rmfanova<- renderText({
-    req(data())
-    df <- data()$df
-    yy <- split(df[, -1], df[, 1]) #split by first column
-    yy <- lapply(yy,as.matrix)
-    res <- rmfanova(yy)
-    return(summary(res, digits = 3))
+  # output$rmfanova<- renderText({
+  #   req(data())
+  #   df <- data()$df
+  #   yy <- split(df[, -1], df[, 1]) #split by first column
+  #   yy <- lapply(yy,as.matrix)
+  #   res <- rmfanova(yy)
+  #   return(summary(res, digits = 3))
+  # })
+  output$rmfanova <- renderPrint({
+      req(data())
+      df <- data()$df
+      yy <- split(df[, -1], df[, 1]) #split by first column
+      yy <- lapply(yy,as.matrix)
+      res <- rmfanova(yy)
+      
+    cat("Number of observations:", res$n, "\n")
+    cat("Number of design time points:", res$p, "\n")
+    cat("Number of samples:", res$l, "\n")
+    cat("Adjustment method for pairwise comparison tests:", res$method, "\n")
+    print(res$test_stat)
+    print(res$p_values)
+    print(res$p_values_pc)
+    #output$loaded(TRUE)
   })
   
 }
