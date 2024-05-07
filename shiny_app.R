@@ -142,9 +142,6 @@ ui <- dashboardPage(
       .author-text {
         text-align: right;
       }
-      .custom-box {
-          margin: 10px;
-        }
     '))),
     add_busy_spinner(spin = "fading-circle", 
                      margins = c(5, 5),
@@ -396,7 +393,6 @@ server <- function(input, output) {
     div(
       style = "margin: 15px;",
       box(
-        #class = "custom-box",
         title = "Overall p-values",
         status = "primary",
         solidHeader = TRUE,
@@ -417,7 +413,6 @@ server <- function(input, output) {
     div(
       style = "margin: 15px;",
       box(
-        #class = "custom-box",
         title = "Pairwise comparison p-values",
         status = "primary",
         solidHeader = TRUE,
