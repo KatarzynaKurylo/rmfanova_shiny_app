@@ -142,6 +142,9 @@ ui <- dashboardPage(
       .author-text {
         text-align: right;
       }
+      .custom-box {
+          margin: 10px;
+        }
     '))),
     add_busy_spinner(spin = "fading-circle", 
                      margins = c(5, 5),
@@ -296,10 +299,12 @@ server <- function(input, output) {
     req(data())
     df <- data()$df
     group_names <- unique(df[,1])
+    
     is_legend<-input$legend
     is_color<-input$color
     x_axis<-input$x_axis
     y_axis<-input$y_axis
+    
     plots <- lapply(1:length(group_names), function(i) {
       group_data <- df[df[,1] == group_names[i], -1]
       p <- plot_ly()
@@ -367,7 +372,7 @@ server <- function(input, output) {
   output$test_stat <- DT::renderDataTable({
     res <- rmfanova_result()
     df <- as.data.frame(res$test_stat)
-    return(DT::datatable(df, options = list(dom = 't', pageLength = 5), rownames = FALSE))
+    return(DT::datatable(df, options = list(dom = 't',scrollX = TRUE), rownames = FALSE))
   })
   
   output$test_stat_table <- renderUI({
@@ -383,34 +388,42 @@ server <- function(input, output) {
   output$p_values <- DT::renderDataTable({
     res <- rmfanova_result()
     df <- as.data.frame(res$p_values)
-    return(DT::datatable(df, options = list(dom = 't', pageLength = 5), rownames = FALSE))
+    return(DT::datatable(df, options = list(dom = 't',scrollX = TRUE), rownames = FALSE)) #options = list(dom = 't', pageLength = 5)
   })
   
   output$p_values_table <- renderUI({
     res<- rmfanova_result()
-    box(
-      title = "Overall p-values",
-      status = "primary",
-      solidHeader = TRUE,
-      width = "auto",
-      DT::dataTableOutput("p_values")
+    div(
+      style = "margin: 15px;",
+      box(
+        #class = "custom-box",
+        title = "Overall p-values",
+        status = "primary",
+        solidHeader = TRUE,
+        width = "auto",
+        DT::dataTableOutput("p_values")
+      )
     )
   })
   
   output$p_values_pc <- DT::renderDataTable({
     res <- rmfanova_result()
     df <- as.data.frame(res$p_values_pc)
-    return(DT::datatable(df, options = list(dom = 't', pageLength = 5)))
+    return(DT::datatable(df,options = list(scrollX = TRUE)))#, options = list(dom = 't', pageLength = 5)))
   })
   
   output$p_values_pc_table <- renderUI({
     res<- rmfanova_result()
-    box(
-      title = "Pairwise comparison p-values",
-      status = "primary",
-      solidHeader = TRUE,
-      width = "auto",
-      DT::dataTableOutput("p_values_pc")
+    div(
+      style = "margin: 15px;",
+      box(
+        #class = "custom-box",
+        title = "Pairwise comparison p-values",
+        status = "primary",
+        solidHeader = TRUE,
+        width = "auto",
+        DT::dataTableOutput("p_values_pc")
+      )
     )
   })
 }
