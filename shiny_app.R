@@ -1,4 +1,5 @@
 library(shiny)
+library(shinydashboard)
 library(plotly)
 library(rmfanova)
 library(data.table)
@@ -11,7 +12,7 @@ mean_fun_point <- function(x, values = FALSE, type = "l", lty = 1,
   for (i in seq_len(l)) {
     means[, i] <- colMeans(x[[i]])
   }
-  #matplot(means, type = type, lty = lty, main = main, ...)
+  
   p <- plot_ly()
   for (i in 1:ncol(means)) {
     p <- add_trace(p, x = 1:nrow(means), y = means[,i],
@@ -36,10 +37,6 @@ ssa_point <- function(x, values = FALSE,
   p <- layout(p, xaxis = list(title = "t"),
               title = "SSA(t)")
   return(p)
-  # plot(ssa, type = type, ylab = ylab, main = main, ...)
-  # if (values) {
-  #   return(ssa)
-  # }
 }
 
 f_point <- function(x, values = FALSE, 
@@ -70,75 +67,81 @@ f_point <- function(x, values = FALSE,
   p <- layout(p, xaxis = list(title = "t"),
               title = "F(t)")
   return(p)
-  # plot(f_point, type = type, ylab = ylab, main = main, ...)
-  # if (values) {
-  #   return(f_point)
-  # }
 }
 
-
-ui <- fluidPage(
-  
-  titlePanel("Uploading Files"),
-  sidebarLayout(
-    sidebarPanel(
-      fileInput("file1", "Choose CSV File",
-                multiple = FALSE,
-                accept = c("text/csv",
-                           "text/comma-separated-values,text/plain",
-                           ".csv")),
-      tags$hr(),
-      checkboxInput("header", "Header", TRUE),
-      radioButtons("sep", "Separator",
-                   choices = c(Comma = ",",
-                               Semicolon = ";",
-                               Tab = "\t"),
-                   selected = ","),
-      radioButtons("quote", "Quote",
-                   choices = c(None = "",
-                               "Double Quote" = '"',
-                               "Single Quote" = "'"),
-                   selected = '"'),
-      tags$hr(),
-      radioButtons("disp", "Display",
-                   choices = c(Head = "head",
-                               All = "all"),
-                   selected = "head")
-      
-    ),
-    mainPanel(
-      tabsetPanel(id = "tabs",
-                  tabPanel(
-                    title = "Data set",
-                    DT::dataTableOutput("data_table")
-                  ),
-                  tabPanel(
-                    title = "Data visualisation",
-                    uiOutput("input_df_plots")
-                  ),
-                  tabPanel(
-                    title = "Statistical plots",
-                    plotlyOutput("mean_functions"),
-                    plotlyOutput("ssa_statistics"),
-                    plotlyOutput("f_statistics")
-                  ),
-                  tabPanel(
-                    title = "rmfanova Summary",
-                    # conditionalPanel(
-                    #   condition = "!output.loaded",
-                    #  # condition = "output.loaded == false",
-                    #   #HTML('<img src="loading.gif" width="50" height="50" alt="loading...">')
-                    #   tags$img(src = "loading.png", width = 50, height = 50, alt = "loading...")
-                    # ),
-                    verbatimTextOutput("rmfanova")
-                  )
+ui <- dashboardPage(
+  dashboardHeader(title = "Uploading Files"),
+  dashboardSidebar(
+    fileInput("file1", "Choose CSV File",
+              multiple = FALSE,
+              accept = c("text/csv",
+                         "text/comma-separated-values,text/plain",
+                         ".csv")),
+    tags$hr(),
+    checkboxInput("header", "Header", TRUE),
+    radioButtons("sep", "Separator",
+                 choices = c(Comma = ",",
+                             Semicolon = ";",
+                             Tab = "\t"),
+                 selected = ","),
+    radioButtons("quote", "Quote",
+                 choices = c(None = "",
+                             "Double Quote" = '"',
+                             "Single Quote" = "'"),
+                 selected = '"'),
+    tags$hr()
+  ),
+  dashboardBody(
+    tabsetPanel(
+      tabPanel(
+        title = "Data set",
+        div(
+          style = "overflow-x: auto;",
+          DT::dataTableOutput("data_table")
+        )
+        #DT::dataTableOutput("data_table")
+      ),
+      tabPanel(
+        title = "Data visualisation",
+        uiOutput("input_df_plots")
+      ),
+      tabPanel(
+        title = "Statistical plots",
+        plotlyOutput("mean_functions"),
+        plotlyOutput("ssa_statistics"),
+        plotlyOutput("f_statistics")
+      ),
+      # tabPanel(
+      #   title = "rmfanova Summary",
+      #   verbatimTextOutput("rmfanova")
+      # )
+      tabPanel(
+        title = "rmfanova Summary",
+        fluidRow(
+          valueBoxOutput("rmfanova_summary_l"), #number of samples
+          valueBoxOutput("rmfanova_summary_n"), #number of observations
+          valueBoxOutput("rmfanova_summary_p") #number of time points
+        ),
+        fluidRow(
+          valueBoxOutput("rmfanova_summary_method"),
+          uiOutput("test_stat_table")
+        ),
+        #fluidRow(uiOutput("test_stat_table"))
+        # fluidRow(
+        #   DT::dataTableOutput("test_stat")
+        # ),
+        fluidRow(
+          uiOutput("p_values_table")
+        ),
+        fluidRow(
+          uiOutput("p_values_pc_table")
+        )
       )
     )
   )
 )
 
 server <- function(input, output) {
-  #output$loaded <- reactiveVal(FALSE)
   data <- reactive({
     req(input$file1)
     
@@ -153,10 +156,12 @@ server <- function(input, output) {
     
     return(list(df = df, matrix = matrix))
   })
-  output$data_table<-DT::renderDataTable({
+  
+  output$data_table <- DT::renderDataTable({
     req(data())
     return(data()$df)
   })
+  
   output$input_df_plots <- renderUI({
     req(data())
     df <- data()$df
@@ -175,6 +180,7 @@ server <- function(input, output) {
     })
     return(plots)
   })
+  
   output$mean_functions <- renderPlotly({
     req(data())
     yy <- data()$matrix
@@ -182,43 +188,115 @@ server <- function(input, output) {
                       col = 1:4, xlab = "t", ylab = "FA", xaxt = "n")
     return(p)
   })
-  output$ssa_statistics<-renderPlotly({
+  
+  output$ssa_statistics <- renderPlotly({
     req(data())
     yy <- data()$matrix
-    ssa<-ssa_point(yy, xlab = "t", xaxt = "n")
+    ssa <- ssa_point(yy, xlab = "t", xaxt = "n")
     return(ssa)
   })
-  output$f_statistics<-renderPlotly({
+  
+  output$f_statistics <- renderPlotly({
     req(data())
     yy <- data()$matrix
-    f<-f_point(yy, xlab = "t", xaxt = "n")
+    f <- f_point(yy, xlab = "t", xaxt = "n")
     return(f)
   })
-  # output$rmfanova<- renderText({
-  #   req(data())
-  #   df <- data()$df
-  #   yy <- split(df[, -1], df[, 1]) #split by first column
-  #   yy <- lapply(yy,as.matrix)
-  #   res <- rmfanova(yy)
-  #   return(summary(res, digits = 3))
-  # })
-  output$rmfanova <- renderPrint({
-      req(data())
-      df <- data()$df
-      yy <- split(df[, -1], df[, 1]) #split by first column
-      yy <- lapply(yy,as.matrix)
-      res <- rmfanova(yy)
-      
-    cat("Number of observations:", res$n, "\n")
-    cat("Number of design time points:", res$p, "\n")
-    cat("Number of samples:", res$l, "\n")
-    cat("Adjustment method for pairwise comparison tests:", res$method, "\n")
-    print(res$test_stat)
-    print(res$p_values)
-    print(res$p_values_pc)
-    #output$loaded(TRUE)
+  
+  rmfanova_result <- reactive({
+    req(data())
+    df <- data()$df
+    yy <- split(df[, -1], df[, 1]) #split by first column
+    yy <- lapply(yy, as.matrix)
+    res <- rmfanova(yy)
+    return(res)
+  })
+
+  output$rmfanova_summary_n <- renderValueBox({
+    res <- rmfanova_result()
+    valueBox(
+      value = res$n,
+      subtitle = "Number of Observations",
+      color = "blue"
+    )
   })
   
+  output$rmfanova_summary_p <- renderValueBox({
+    res <- rmfanova_result()
+    valueBox(
+      value = res$p,
+      subtitle = "Number of Design Time Points",
+      color = "blue"
+    )
+  })
+  
+  output$rmfanova_summary_l <- renderValueBox({
+    res <- rmfanova_result()
+    valueBox(
+      value = res$l,
+      subtitle = "Number of Samples",
+      color = "blue"
+    )
+  })
+  
+  output$rmfanova_summary_method <- renderValueBox({
+    res <- rmfanova_result()
+    valueBox(
+      value = res$method,
+      subtitle = "Adjustment Method",
+      color = "blue"
+    )
+  })
+  
+  output$test_stat <- DT::renderDataTable({
+    res <- rmfanova_result()
+    df <- as.data.frame(res$test_stat)
+    return(DT::datatable(df, options = list(dom = 't', pageLength = 5), rownames = FALSE))
+  })
+  
+  output$test_stat_table <- renderUI({
+    res<- rmfanova_result()
+    box(
+      title = "Overall test statistics",
+      status = "primary",
+      solidHeader = TRUE,
+      DT::dataTableOutput("test_stat")
+    )
+  })
+  
+  output$p_values <- DT::renderDataTable({
+    res <- rmfanova_result()
+    df <- as.data.frame(res$p_values)
+    return(DT::datatable(df, options = list(dom = 't', pageLength = 5), rownames = FALSE))
+  })
+  
+  output$p_values_table <- renderUI({
+    res<- rmfanova_result()
+    box(
+      title = "Overall p-values",
+      status = "primary",
+      solidHeader = TRUE,
+      width = "auto",
+      DT::dataTableOutput("p_values")
+    )
+  })
+  
+  output$p_values_pc <- DT::renderDataTable({
+    res <- rmfanova_result()
+    df <- as.data.frame(res$p_values_pc)
+    return(DT::datatable(df, options = list(dom = 't', pageLength = 5)))
+  })
+  
+  output$p_values_pc_table <- renderUI({
+    res<- rmfanova_result()
+    box(
+      title = "Pairwise comparison p-values",
+      status = "primary",
+      solidHeader = TRUE,
+      width = "auto",
+      DT::dataTableOutput("p_values_pc")
+    )
+  })
 }
 
 shinyApp(ui, server)
