@@ -1,5 +1,6 @@
 library(shiny)
 library(shinydashboard)
+library(shinybusy)
 library(plotly)
 library(rmfanova)
 library(data.table)
@@ -21,7 +22,7 @@ mean_fun_point <- function(x, values = FALSE, type = "l", lty = 1,
   }
   
   p <- layout(p, xaxis = list(title = "t"), yaxis = list(title = "FA"),
-              title = "Mean functions by group")
+              title = "Sample mean functions by group")
   return(p)
 }
 
@@ -69,8 +70,34 @@ f_point <- function(x, values = FALSE,
   return(p)
 }
 
+header_img <- div(class = "my-title",
+                  h1('Functional repeated measures analysis of variance'),
+                  tags$style(".my-title :is(h1){color: white; text-align: center; margin-top: 10px; font-size: 24px;}")
+                  )
+# dashboard_header <- dashboardHeader(
+#   title = h4(span("Loading Files", style = "margin-top: 50px;"))
+# )
+header <-  htmltools::tagQuery(dashboardHeader(title="Loading Files"))
+
+# header$title <- div(
+#   header$title,
+#   tags$style("margin-top: 15px;")
+# )
+header <- header$
+  addAttrs(style = "position: relative")$ # add some styles to the header 
+  find(".navbar.navbar-static-top")$ # find the header right side
+  append(header_img)$ # inject our img
+  allTags()
+
 ui <- dashboardPage(
-  dashboardHeader(title = "Uploading Files"),
+  # dashboardHeader(titleWidth='100%',
+  #                 title = div(
+  #                   column(12, class="title-box", 
+  #                          tags$h1(style='margin-top:10px;', 'Functional repeated measures analysis of variance')
+  #                   )
+  #                 ),
+  #                 dropdownMenuOutput("helpMenu")),
+  header,
   dashboardSidebar(
     fileInput("file1", "Choose CSV File",
               multiple = FALSE,
@@ -92,9 +119,30 @@ ui <- dashboardPage(
     tags$hr()
   ),
   dashboardBody(
+    tags$head(tags$style(HTML('
+      .main-header .logo {
+        font-size: 20px;
+      }
+    '))),
+    add_busy_spinner(spin = "fading-circle", 
+                     margins = c(5, 5),
+                     height = "40px",
+                     width = "40px",
+                     color = "white"
+    ),
     tabsetPanel(
       tabPanel(
+        title = "Info",
+        uiOutput("informations")
+      ),
+      tabPanel(
         title = "Data set",
+        br(), #instead of br() I can use fluidRow(...,style = "padding-top:20px")
+        fluidRow(
+          valueBoxOutput("dataset_l"), #number of samples
+          valueBoxOutput("dataset_n"), #number of observations
+          valueBoxOutput("dataset_p") #number of time points
+        ),
         div(
           style = "overflow-x: auto;",
           DT::dataTableOutput("data_table")
@@ -103,10 +151,12 @@ ui <- dashboardPage(
       ),
       tabPanel(
         title = "Data visualisation",
+        br(),
         uiOutput("input_df_plots")
       ),
       tabPanel(
-        title = "Statistical plots",
+        title = "Summary plots",
+        br(),
         plotlyOutput("mean_functions"),
         plotlyOutput("ssa_statistics"),
         plotlyOutput("f_statistics")
@@ -116,14 +166,15 @@ ui <- dashboardPage(
       #   verbatimTextOutput("rmfanova")
       # )
       tabPanel(
-        title = "rmfanova Summary",
+        title = "Hypothesis testing",
+        br(),
+        # fluidRow(
+        #   valueBoxOutput("rmfanova_summary_l"), #number of samples
+        #   valueBoxOutput("rmfanova_summary_n"), #number of observations
+        #   valueBoxOutput("rmfanova_summary_p") #number of time points
+        # ),
         fluidRow(
-          valueBoxOutput("rmfanova_summary_l"), #number of samples
-          valueBoxOutput("rmfanova_summary_n"), #number of observations
-          valueBoxOutput("rmfanova_summary_p") #number of time points
-        ),
-        fluidRow(
-          valueBoxOutput("rmfanova_summary_method"),
+          #valueBoxOutput("rmfanova_summary_method"),
           uiOutput("test_stat_table")
         ),
         #fluidRow(uiOutput("test_stat_table"))
@@ -142,6 +193,18 @@ ui <- dashboardPage(
 )
 
 server <- function(input, output) {
+  output$informations<- renderUI({
+    tagList(
+      p("Here are some useful links related to rmfanova:"),
+      div(
+        #img(src = "Rlogo.png"), # Add your image path
+        p("Feel free to explore these resources for more information:"),
+        a("CRAN rmfanova package", href = "https://cran.r-project.org/web/packages/rmfanova/index.html"),
+        p("\n"),
+        a("Functional repeated measures analysis of variance and its application article", href = "https://arxiv.org/abs/2306.03883"),
+      )
+    )
+  })
   data <- reactive({
     req(input$file1)
     
@@ -172,7 +235,7 @@ server <- function(input, output) {
       p <- plot_ly()
       for (j in 1:nrow(group_data)) {
         p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
-                       type = 'scatter', mode = 'lines', name = paste("Trajectory", j))
+                       type = 'scatter', mode = 'lines', name = paste("Observation", j))
       }
       p <- layout(p, xaxis = list(title = "X-axis"), yaxis = list(title = "Y-axis"), 
                   title = paste("Group", group_names[i]))
@@ -211,42 +274,72 @@ server <- function(input, output) {
     res <- rmfanova(yy)
     return(res)
   })
-
-  output$rmfanova_summary_n <- renderValueBox({
-    res <- rmfanova_result()
+  
+  output$dataset_n <- renderValueBox({
+    req(data())
+    x <- data()$matrix
     valueBox(
-      value = res$n,
+      value = nrow(x[[1]]),
       subtitle = "Number of Observations",
       color = "blue"
     )
   })
   
-  output$rmfanova_summary_p <- renderValueBox({
-    res <- rmfanova_result()
+  output$dataset_p <- renderValueBox({
+    req(data())
+    x <- data()$matrix
     valueBox(
-      value = res$p,
+      value = ncol(x[[1]]),
       subtitle = "Number of Design Time Points",
       color = "blue"
     )
   })
   
-  output$rmfanova_summary_l <- renderValueBox({
-    res <- rmfanova_result()
+  output$dataset_l <- renderValueBox({
+    req(data())
+    x <- data()$matrix
     valueBox(
-      value = res$l,
+      value = length(x),
       subtitle = "Number of Samples",
       color = "blue"
     )
   })
   
-  output$rmfanova_summary_method <- renderValueBox({
-    res <- rmfanova_result()
-    valueBox(
-      value = res$method,
-      subtitle = "Adjustment Method",
-      color = "blue"
-    )
-  })
+  # output$rmfanova_summary_n <- renderValueBox({
+  #   res <- rmfanova_result()
+  #   valueBox(
+  #     value = res$n,
+  #     subtitle = "Number of Observations",
+  #     color = "blue"
+  #   )
+  # })
+  # 
+  # output$rmfanova_summary_p <- renderValueBox({
+  #   res <- rmfanova_result()
+  #   valueBox(
+  #     value = res$p,
+  #     subtitle = "Number of Design Time Points",
+  #     color = "blue"
+  #   )
+  # })
+  # 
+  # output$rmfanova_summary_l <- renderValueBox({
+  #   res <- rmfanova_result()
+  #   valueBox(
+  #     value = res$l,
+  #     subtitle = "Number of Samples",
+  #     color = "blue"
+  #   )
+  # })
+  
+  # output$rmfanova_summary_method <- renderValueBox({
+  #   res <- rmfanova_result()
+  #   valueBox(
+  #     value = res$method,
+  #     subtitle = "Adjustment Method",
+  #     color = "blue"
+  #   )
+  # })
   
   output$test_stat <- DT::renderDataTable({
     res <- rmfanova_result()
