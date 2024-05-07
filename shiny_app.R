@@ -5,8 +5,7 @@ library(plotly)
 library(rmfanova)
 library(data.table)
 
-mean_fun_point <- function(x, values = FALSE, type = "l", lty = 1, 
-                           main = "Sample mean functions", ...) {
+mean_fun_point <- function(x, is_legend, is_color, values = FALSE, type = "l", lty = 1, ...) {
   p <- ncol(x[[1]])
   l <- length(x)
   means <- matrix(NA, nrow = p, ncol = l)
@@ -16,9 +15,18 @@ mean_fun_point <- function(x, values = FALSE, type = "l", lty = 1,
   
   p <- plot_ly()
   for (i in 1:ncol(means)) {
-    p <- add_trace(p, x = 1:nrow(means), y = means[,i],
-                   type = 'scatter', mode = 'lines',
-                   name = paste("Group", i))
+    if (is_color) {
+      p <- add_trace(p, x = 1:nrow(means), y = means[,i],
+                     type = 'scatter', mode = 'lines',
+                     name = paste("Group", i),
+                     showlegend = is_legend)
+    } else {
+      p <- add_trace(p, x = 1:nrow(means), y = means[,i],
+                     type = 'scatter', mode = 'lines',
+                     name = paste("Group", i),
+                     showlegend = is_legend,
+                     line = list(color = "black"))  # Set line color to black
+    }
   }
   
   p <- layout(p, xaxis = list(title = "t"), yaxis = list(title = "FA"),
@@ -34,7 +42,8 @@ ssa_point <- function(x, values = FALSE,
   ssa <- n * rowSums((means_gr - means_all)^2)
   p <- plot_ly()
   p <- add_trace(p, x = 1:length(ssa), y = ssa,
-                 type = 'scatter', mode = 'lines')
+                 type = 'scatter', mode = 'lines',
+                 line = list(color = "black"))
   p <- layout(p, xaxis = list(title = "t"),
               title = "SSA(t)")
   return(p)
@@ -64,39 +73,27 @@ f_point <- function(x, values = FALSE,
   f_point <- ifelse(f_point < .Machine$double.eps, 0, f_point)
   p <- plot_ly()
   p <- add_trace(p, x = 1:length(f_point), y = f_point,
-                 type = 'scatter', mode = 'lines')
+                 type = 'scatter', mode = 'lines',
+                 line = list(color = "black"))
   p <- layout(p, xaxis = list(title = "t"),
               title = "F(t)")
   return(p)
 }
 
-header_img <- div(class = "my-title",
+main_header <- div(class = "title",
                   h1('Functional repeated measures analysis of variance'),
-                  tags$style(".my-title :is(h1){color: white; text-align: center; margin-top: 10px; font-size: 24px;}")
+                  tags$style(".title :is(h1){color: white; text-align: center; margin-top: 10px; font-size: 24px;}")
                   )
-# dashboard_header <- dashboardHeader(
-#   title = h4(span("Loading Files", style = "margin-top: 50px;"))
-# )
-header <-  htmltools::tagQuery(dashboardHeader(title="Loading Files"))
 
-# header$title <- div(
-#   header$title,
-#   tags$style("margin-top: 15px;")
-# )
+header <-  htmltools::tagQuery(dashboardHeader(title="Uploading Files"))
+
 header <- header$
-  addAttrs(style = "position: relative")$ # add some styles to the header 
-  find(".navbar.navbar-static-top")$ # find the header right side
-  append(header_img)$ # inject our img
+  addAttrs(style = "position: relative")$ 
+  find(".navbar.navbar-static-top")$
+  append(main_header)$ # inject our main header
   allTags()
 
 ui <- dashboardPage(
-  # dashboardHeader(titleWidth='100%',
-  #                 title = div(
-  #                   column(12, class="title-box", 
-  #                          tags$h1(style='margin-top:10px;', 'Functional repeated measures analysis of variance')
-  #                   )
-  #                 ),
-  #                 dropdownMenuOutput("helpMenu")),
   header,
   dashboardSidebar(
     fileInput("file1", "Choose CSV File",
@@ -147,40 +144,37 @@ ui <- dashboardPage(
           style = "overflow-x: auto;",
           DT::dataTableOutput("data_table")
         )
-        #DT::dataTableOutput("data_table")
       ),
       tabPanel(
         title = "Data visualisation",
         br(),
+        # fluidRow(
+        #   column(4, textInput("x_axis", "Provide x axis name:")),
+        #   column(4, textInput("y_axis", "Provide y axis name:")),
+        #   column(2, checkboxInput("color", "Color", TRUE),style = "margin-top: 20px;"),
+        #   column(2, checkboxInput("legend", "Legend", TRUE),style = "margin-top: 20px;")
+        # ),
+        textInput("x_axis", "Provide x axis name:"),
+        textInput("y_axis", "Provide y axis name:"),
+        checkboxInput("legend", "Legend", TRUE),
+        checkboxInput("color", "Color", TRUE),
         uiOutput("input_df_plots")
       ),
       tabPanel(
         title = "Summary plots",
         br(),
+        checkboxInput("mean_functions_legend", "Legend", TRUE),
+        checkboxInput("mean_functions_color", "Color", TRUE),
         plotlyOutput("mean_functions"),
         plotlyOutput("ssa_statistics"),
         plotlyOutput("f_statistics")
       ),
-      # tabPanel(
-      #   title = "rmfanova Summary",
-      #   verbatimTextOutput("rmfanova")
-      # )
       tabPanel(
         title = "Hypothesis testing",
         br(),
-        # fluidRow(
-        #   valueBoxOutput("rmfanova_summary_l"), #number of samples
-        #   valueBoxOutput("rmfanova_summary_n"), #number of observations
-        #   valueBoxOutput("rmfanova_summary_p") #number of time points
-        # ),
         fluidRow(
-          #valueBoxOutput("rmfanova_summary_method"),
           uiOutput("test_stat_table")
         ),
-        #fluidRow(uiOutput("test_stat_table"))
-        # fluidRow(
-        #   DT::dataTableOutput("test_stat")
-        # ),
         fluidRow(
           uiOutput("p_values_table")
         ),
@@ -195,16 +189,31 @@ ui <- dashboardPage(
 server <- function(input, output) {
   output$informations<- renderUI({
     tagList(
-      p("Here are some useful links related to rmfanova:"),
+      tags$style(
+        HTML("
+        .text-justified {
+          text-align: justify;
+        }
+        .info-box {
+          border: 1px solid #ccc;
+          padding: 10px;
+          margin-bottom: 10px;
+        }
+      ")
+      ),
+      br(),
       div(
-        #img(src = "Rlogo.png"), # Add your image path
+        class = "info-box",
+        p("Functional data analysis (FDA) is a branch of statistics which analyzes observations treated as functions, curves, or surfaces. To represent the data in such a way, one needs only to measure some variable over time or space, which is a scenario encountered in many fields. Then the discrete data observed at so-called design time points can be transformed into functional data. Such a representation allows us to avoid many problems of classical multivariate statistical methods, for example, the curse of dimensionality and missing data. ", class = "text-justified"),
+        p("To compare the results for different samples, we thus consider functional repeated measures analysis of variance. For this purpose, a pointwise test statistic is constructed by adapting the classical test statistic for one-way repeated measures analysis of variance to the functional data framework. By integrating and taking the supremum of the pointwise test statistic, we create two global test statistics. Apart from verifying the general null hypothesis on the equality of mean functions corresponding to different objects, we also propose a simple method for post hoc analysis.", class = "text-justified"),
         p("Feel free to explore these resources for more information:"),
-        a("CRAN rmfanova package", href = "https://cran.r-project.org/web/packages/rmfanova/index.html"),
-        p("\n"),
         a("Functional repeated measures analysis of variance and its application article", href = "https://arxiv.org/abs/2306.03883"),
+        p("\n"),
+        a("CRAN rmfanova package", href = "https://cran.r-project.org/web/packages/rmfanova/index.html")
       )
     )
   })
+  
   data <- reactive({
     req(input$file1)
     
@@ -229,15 +238,26 @@ server <- function(input, output) {
     req(data())
     df <- data()$df
     group_names <- unique(df[,1])
-    
+    is_legend<-input$legend
+    is_color<-input$color
+    x_axis<-input$x_axis
+    y_axis<-input$y_axis
     plots <- lapply(1:length(group_names), function(i) {
       group_data <- df[df[,1] == group_names[i], -1]
       p <- plot_ly()
       for (j in 1:nrow(group_data)) {
-        p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
-                       type = 'scatter', mode = 'lines', name = paste("Observation", j))
+        if (is_color) {
+          p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
+                         type = 'scatter', mode = 'lines', name = paste("Observation", j), 
+                         showlegend = is_legend)  #Use default colors
+        } else {
+          p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
+                         type = 'scatter', mode = 'lines', name = paste("Observation", j), 
+                         showlegend = is_legend,
+                         line = list(color = "black"))  # Set line color to black
+        }
       }
-      p <- layout(p, xaxis = list(title = "X-axis"), yaxis = list(title = "Y-axis"), 
+      p <- layout(p, xaxis = list(title = x_axis), yaxis = list(title = y_axis), 
                   title = paste("Group", group_names[i]))
       return(p)
     })
@@ -247,7 +267,9 @@ server <- function(input, output) {
   output$mean_functions <- renderPlotly({
     req(data())
     yy <- data()$matrix
-    p<-mean_fun_point(yy, values = FALSE, 
+    is_legend<-input$mean_functions_legend
+    is_color<-input$mean_functions_color
+    p<-mean_fun_point(yy, is_legend, is_color, values = FALSE, 
                       col = 1:4, xlab = "t", ylab = "FA", xaxt = "n")
     return(p)
   })
@@ -304,42 +326,6 @@ server <- function(input, output) {
       color = "blue"
     )
   })
-  
-  # output$rmfanova_summary_n <- renderValueBox({
-  #   res <- rmfanova_result()
-  #   valueBox(
-  #     value = res$n,
-  #     subtitle = "Number of Observations",
-  #     color = "blue"
-  #   )
-  # })
-  # 
-  # output$rmfanova_summary_p <- renderValueBox({
-  #   res <- rmfanova_result()
-  #   valueBox(
-  #     value = res$p,
-  #     subtitle = "Number of Design Time Points",
-  #     color = "blue"
-  #   )
-  # })
-  # 
-  # output$rmfanova_summary_l <- renderValueBox({
-  #   res <- rmfanova_result()
-  #   valueBox(
-  #     value = res$l,
-  #     subtitle = "Number of Samples",
-  #     color = "blue"
-  #   )
-  # })
-  
-  # output$rmfanova_summary_method <- renderValueBox({
-  #   res <- rmfanova_result()
-  #   valueBox(
-  #     value = res$method,
-  #     subtitle = "Adjustment Method",
-  #     color = "blue"
-  #   )
-  # })
   
   output$test_stat <- DT::renderDataTable({
     res <- rmfanova_result()
