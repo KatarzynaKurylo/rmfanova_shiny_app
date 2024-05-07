@@ -1,6 +1,7 @@
 library(shiny)
 library(shinydashboard)
-library(shinybusy)
+library(shinybusy) # for loading spinner
+library(bsplus) #for info popover
 library(plotly)
 library(rmfanova)
 library(data.table)
@@ -96,11 +97,25 @@ header <- header$
 ui <- dashboardPage(
   header,
   dashboardSidebar(
+    # fileInput("file1", "Choose CSV File",
+    #           multiple = FALSE,
+    #           accept = c("text/csv",
+    #                      "text/comma-separated-values,text/plain",
+    #                      ".csv")),
+    use_bs_popover(),
     fileInput("file1", "Choose CSV File",
               multiple = FALSE,
               accept = c("text/csv",
                          "text/comma-separated-values,text/plain",
-                         ".csv")),
+                         ".csv")) %>%
+      shinyInput_label_embed(
+        shiny_iconlink() %>%
+          bs_embed_popover(
+            title = "File Format", 
+            content = "CSV File should have the sample number in the first column. Each of the other columns should indicate a discrete time point. The number of rows should be the number of samples multiplied by the number of observations.", 
+            placement ="right"
+          )
+      ),
     tags$hr(),
     checkboxInput("header", "Header", TRUE),
     radioButtons("sep", "Separator",
@@ -116,9 +131,16 @@ ui <- dashboardPage(
     tags$hr()
   ),
   dashboardBody(
+    tags$style(HTML('.popover-title {color:black;}
+                               .popover-content {color:black;max-width: 400px;min-width: 200px; text-align: justify;}
+                               .main-sidebar {z-index:auto;}
+                                }')),
     tags$head(tags$style(HTML('
       .main-header .logo {
         font-size: 20px;
+      }
+      .author-text {
+        text-align: right;
       }
     '))),
     add_busy_spinner(spin = "fading-circle", 
@@ -154,8 +176,8 @@ ui <- dashboardPage(
         #   column(2, checkboxInput("color", "Color", TRUE),style = "margin-top: 20px;"),
         #   column(2, checkboxInput("legend", "Legend", TRUE),style = "margin-top: 20px;")
         # ),
-        textInput("x_axis", "Provide x axis name:"),
-        textInput("y_axis", "Provide y axis name:"),
+        textInput("x_axis", "Provide x axis name:",value="Time"),
+        textInput("y_axis", "Provide y axis name:",value="Value"),
         checkboxInput("legend", "Legend", TRUE),
         checkboxInput("color", "Color", TRUE),
         uiOutput("input_df_plots")
@@ -172,6 +194,10 @@ ui <- dashboardPage(
       tabPanel(
         title = "Hypothesis testing",
         br(),
+        numericInput("n_perm", "Number of permutation replicates:", value = 1000, min = 1, step = 1),
+        numericInput("n_boot", "Number of bootstrap replicates:", value = 1000, min = 1, step = 1),
+        checkboxInput("parallel", "Parallel computing", FALSE),
+        checkboxInput("multi_gen", "Multiple generations", FALSE),
         fluidRow(
           uiOutput("test_stat_table")
         ),
@@ -209,7 +235,9 @@ server <- function(input, output) {
         p("Feel free to explore these resources for more information:"),
         a("Functional repeated measures analysis of variance and its application article", href = "https://arxiv.org/abs/2306.03883"),
         p("\n"),
-        a("CRAN rmfanova package", href = "https://cran.r-project.org/web/packages/rmfanova/index.html")
+        a("CRAN rmfanova package", href = "https://cran.r-project.org/web/packages/rmfanova/index.html"),
+        p("\n"),
+        p("Authors: Katarzyna Kurylo & Lukasz Smaga",class="author-text")
       )
     )
   })
@@ -227,6 +255,36 @@ server <- function(input, output) {
     matrix <- lapply(splited_df, as.matrix)
     
     return(list(df = df, matrix = matrix))
+  })
+  
+  output$dataset_n <- renderValueBox({
+    req(data())
+    x <- data()$matrix
+    valueBox(
+      value = nrow(x[[1]]),
+      subtitle = "Number of Observations",
+      color = "blue"
+    )
+  })
+  
+  output$dataset_p <- renderValueBox({
+    req(data())
+    x <- data()$matrix
+    valueBox(
+      value = ncol(x[[1]]),
+      subtitle = "Number of Design Time Points",
+      color = "blue"
+    )
+  })
+  
+  output$dataset_l <- renderValueBox({
+    req(data())
+    x <- data()$matrix
+    valueBox(
+      value = length(x),
+      subtitle = "Number of Samples",
+      color = "blue"
+    )
   })
   
   output$data_table <- DT::renderDataTable({
@@ -290,41 +348,20 @@ server <- function(input, output) {
   
   rmfanova_result <- reactive({
     req(data())
+    n_perm<-input$n_perm
+    n_boot<-input$n_boot
+    parallel<-input$parallel
+    multi_gen<-input$multi_gen
     df <- data()$df
     yy <- split(df[, -1], df[, 1]) #split by first column
     yy <- lapply(yy, as.matrix)
-    res <- rmfanova(yy)
+    res <- rmfanova(yy,
+                    n_perm = n_perm,
+                    n_boot = n_boot,
+                    parallel = parallel,
+                    #n_cores = NULL,
+                    multi_gen = multi_gen)
     return(res)
-  })
-  
-  output$dataset_n <- renderValueBox({
-    req(data())
-    x <- data()$matrix
-    valueBox(
-      value = nrow(x[[1]]),
-      subtitle = "Number of Observations",
-      color = "blue"
-    )
-  })
-  
-  output$dataset_p <- renderValueBox({
-    req(data())
-    x <- data()$matrix
-    valueBox(
-      value = ncol(x[[1]]),
-      subtitle = "Number of Design Time Points",
-      color = "blue"
-    )
-  })
-  
-  output$dataset_l <- renderValueBox({
-    req(data())
-    x <- data()$matrix
-    valueBox(
-      value = length(x),
-      subtitle = "Number of Samples",
-      color = "blue"
-    )
   })
   
   output$test_stat <- DT::renderDataTable({
