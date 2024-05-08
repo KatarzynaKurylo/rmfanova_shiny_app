@@ -82,9 +82,9 @@ f_point <- function(x, values = FALSE,
 }
 
 main_header <- div(class = "title",
-                  h1("Functional repeated measures analysis of variance"),
-                  tags$style(".title :is(h1){color: white; text-align: center; margin-top: 10px; font-size: 24px;}")
-                  )
+                   h1("Functional repeated measures analysis of variance"),
+                   tags$style(".title :is(h1){color: white; text-align: center; margin-top: 10px; font-size: 24px;}")
+)
 
 header <-  htmltools::tagQuery(dashboardHeader(title="",titleWidth = 0))
 
@@ -187,6 +187,7 @@ ui <- dashboardPage(
         textInput("y_axis", "Provide y axis name:",value="Value"),
         checkboxInput("legend", "Legend", TRUE),
         checkboxInput("color", "Color", TRUE),
+        actionButton("data_vis_button", "Run"),
         uiOutput("input_df_plots")
       ),
       tabPanel(
@@ -194,6 +195,7 @@ ui <- dashboardPage(
         br(),
         checkboxInput("mean_functions_legend", "Legend", TRUE),
         checkboxInput("mean_functions_color", "Color", TRUE),
+        actionButton("sum_plots_button", "Run"),
         plotlyOutput("mean_functions"),
         plotlyOutput("ssa_statistics"),
         plotlyOutput("f_statistics")
@@ -205,11 +207,12 @@ ui <- dashboardPage(
         numericInput("n_boot", "Number of bootstrap replicates:", value = 1000, min = 1, step = 1),
         checkboxInput("parallel", "Parallel computing", FALSE),
         checkboxInput("multi_gen", "Multiple generations", FALSE),
+        actionButton("hyp_test_button", "Run"),
+        downloadButton("download_csv", "Download csv file with p-values", FALSE),
         fluidRow(
           uiOutput("test_stat_table")
         ),
         fluidRow(
-          downloadButton("download_csv", "Download csv file with p-values", FALSE),
           uiOutput("p_values_table")
         ),
         fluidRow(
@@ -300,148 +303,155 @@ server <- function(input, output) {
     return(data()$df)
   })
   
-  output$input_df_plots <- renderUI({
-    req(data())
-    df <- data()$df
-    group_names <- unique(df[,1])
-    
+  observeEvent(input$data_vis_button, {
     is_legend<-input$legend
     is_color<-input$color
     x_axis<-input$x_axis
     y_axis<-input$y_axis
     
-    plots <- lapply(1:length(group_names), function(i) {
-      group_data <- df[df[,1] == group_names[i], -1]
-      p <- plot_ly()
-      for (j in 1:nrow(group_data)) {
-        if (is_color) {
-          p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
-                         type = 'scatter', mode = 'lines', name = paste("Observation", j), 
-                         showlegend = is_legend)  #Use default colors
-        } else {
-          p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
-                         type = 'scatter', mode = 'lines', name = paste("Observation", j), 
-                         showlegend = is_legend,
-                         line = list(color = "black"))  # Set line color to black
+    output$input_df_plots <- renderUI({
+      req(data())
+      df <- data()$df
+      group_names <- unique(df[,1])
+      plots <- lapply(1:length(group_names), function(i) {
+        group_data <- df[df[,1] == group_names[i], -1]
+        p <- plot_ly()
+        for (j in 1:nrow(group_data)) {
+          if (is_color) {
+            p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
+                           type = 'scatter', mode = 'lines', name = paste("Observation", j), 
+                           showlegend = is_legend)  #Use default colors
+          } else {
+            p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
+                           type = 'scatter', mode = 'lines', name = paste("Observation", j), 
+                           showlegend = is_legend,
+                           line = list(color = "black"))  # Set line color to black
+          }
         }
-      }
-      p <- layout(p, xaxis = list(title = x_axis), yaxis = list(title = y_axis), 
-                  title = paste("Group", group_names[i]))
-      return(p)
+        p <- layout(p, xaxis = list(title = x_axis), yaxis = list(title = y_axis), 
+                    title = paste("Group", group_names[i]))
+        return(p)
+      })
+      return(plots)
     })
-    return(plots)
   })
   
-  output$mean_functions <- renderPlotly({
-    req(data())
-    yy <- data()$matrix
+  observeEvent(input$sum_plots_button, {
     is_legend<-input$mean_functions_legend
     is_color<-input$mean_functions_color
-    p<-mean_fun_point(yy, is_legend, is_color, values = FALSE, 
-                      col = 1:4, xlab = "t", ylab = "FA", xaxt = "n")
-    return(p)
+    
+    output$mean_functions <- renderPlotly({
+      req(data())
+      yy <- data()$matrix
+      p<-mean_fun_point(yy, is_legend, is_color, values = FALSE, 
+                        col = 1:4, xlab = "t", ylab = "FA", xaxt = "n")
+      return(p)
+    })
+    
+    output$ssa_statistics <- renderPlotly({
+      req(data())
+      yy <- data()$matrix
+      ssa <- ssa_point(yy, xlab = "t", xaxt = "n")
+      return(ssa)
+    })
+    
+    output$f_statistics <- renderPlotly({
+      req(data())
+      yy <- data()$matrix
+      f <- f_point(yy, xlab = "t", xaxt = "n")
+      return(f)
+    })
   })
   
-  output$ssa_statistics <- renderPlotly({
-    req(data())
-    yy <- data()$matrix
-    ssa <- ssa_point(yy, xlab = "t", xaxt = "n")
-    return(ssa)
-  })
-  
-  output$f_statistics <- renderPlotly({
-    req(data())
-    yy <- data()$matrix
-    f <- f_point(yy, xlab = "t", xaxt = "n")
-    return(f)
-  })
-  
-  rmfanova_result <- reactive({
-    req(data())
+  observeEvent(input$hyp_test_button, {
     n_perm<-input$n_perm
     n_boot<-input$n_boot
     parallel<-input$parallel
     multi_gen<-input$multi_gen
-    df <- data()$df
-    yy <- split(df[, -1], df[, 1]) #split by first column
-    yy <- lapply(yy, as.matrix)
-    res <- rmfanova(yy,
-                    n_perm = n_perm,
-                    n_boot = n_boot,
-                    parallel = parallel,
-                    #n_cores = NULL,
-                    multi_gen = multi_gen)
-    return(res)
-  })
-  
-  # ls
-  output$download_csv <- downloadHandler(
-    filename = function() {
-      "rmfanova_results.csv"
-    },
-    content = function(file) {
+    
+    rmfanova_result <- reactive({
+      req(data())
+      df <- data()$df
+      yy <- split(df[, -1], df[, 1]) #split by first column
+      yy <- lapply(yy, as.matrix)
+      res <- rmfanova(yy,
+                      n_perm = n_perm,
+                      n_boot = n_boot,
+                      parallel = parallel,
+                      #n_cores = NULL,
+                      multi_gen = multi_gen)
+      return(res)
+    })
+    
+    # ls
+    output$download_csv <- downloadHandler(
+      filename = function() {
+        "rmfanova_results.csv"
+      },
+      content = function(file) {
+        res <- rmfanova_result()
+        res_df <- rbind(res$p_values, res$p_values_pc)
+        rownames(res_df) <- c("Global hypothesis", rownames(res$p_values_pc))
+        # Zapisanie danych do pliku CSV
+        write.csv(res_df, file)
+      }
+    )
+    
+    output$test_stat <- DT::renderDataTable({
       res <- rmfanova_result()
-      res_df <- rbind(res$p_values, res$p_values_pc)
-      rownames(res_df) <- c("Global hypothesis", rownames(res$p_values_pc))
-      # Zapisanie danych do pliku CSV
-      write.csv(res_df, file)
-    }
-  )
-  
-  output$test_stat <- DT::renderDataTable({
-    res <- rmfanova_result()
-    df <- as.data.frame(res$test_stat)
-    return(DT::datatable(df, options = list(dom = 't',scrollX = TRUE), rownames = FALSE))
-  })
-  
-  output$test_stat_table <- renderUI({
-    res <- rmfanova_result()
-    box(
-      title = "Overall test statistics",
-      status = "primary",
-      solidHeader = TRUE,
-      DT::dataTableOutput("test_stat")
-    )
-  })
-  
-  output$p_values <- DT::renderDataTable({
-    res <- rmfanova_result()
-    df <- as.data.frame(res$p_values)
-    return(DT::datatable(df, options = list(dom = 't',scrollX = TRUE), rownames = FALSE)) #options = list(dom = 't', pageLength = 5)
-  })
-  
-  output$p_values_table <- renderUI({
-    res <- rmfanova_result()
-    div(
-      style = "margin: 15px;",
+      df <- as.data.frame(res$test_stat)
+      return(DT::datatable(df, options = list(dom = 't',scrollX = TRUE), rownames = FALSE))
+    })
+    
+    output$test_stat_table <- renderUI({
+      res <- rmfanova_result()
       box(
-        title = "Overall p-values",
+        title = "Overall test statistics",
         status = "primary",
         solidHeader = TRUE,
-        width = "auto",
-        DT::dataTableOutput("p_values")
+        DT::dataTableOutput("test_stat")
       )
-    )
-  })
-  
-  output$p_values_pc <- DT::renderDataTable({
-    res <- rmfanova_result()
-    df <- as.data.frame(res$p_values_pc)
-    return(DT::datatable(df,options = list(scrollX = TRUE)))#, options = list(dom = 't', pageLength = 5)))
-  })
-  
-  output$p_values_pc_table <- renderUI({
-    res <- rmfanova_result()
-    div(
-      style = "margin: 15px;",
-      box(
-        title = "Pairwise comparison p-values",
-        status = "primary",
-        solidHeader = TRUE,
-        width = "auto",
-        DT::dataTableOutput("p_values_pc")
+    })
+    
+    output$p_values <- DT::renderDataTable({
+      res <- rmfanova_result()
+      df <- as.data.frame(res$p_values)
+      return(DT::datatable(df, options = list(dom = 't',scrollX = TRUE), rownames = FALSE)) #options = list(dom = 't', pageLength = 5)
+    })
+    
+    output$p_values_table <- renderUI({
+      res <- rmfanova_result()
+      div(
+        style = "margin: 15px;",
+        box(
+          title = "Overall p-values",
+          status = "primary",
+          solidHeader = TRUE,
+          width = "auto",
+          DT::dataTableOutput("p_values")
+        )
       )
-    )
+    })
+    
+    output$p_values_pc <- DT::renderDataTable({
+      res <- rmfanova_result()
+      df <- as.data.frame(res$p_values_pc)
+      return(DT::datatable(df,options = list(scrollX = TRUE)))#, options = list(dom = 't', pageLength = 5)))
+    })
+    
+    output$p_values_pc_table <- renderUI({
+      res <- rmfanova_result()
+      div(
+        style = "margin: 15px;",
+        box(
+          title = "Pairwise comparison p-values",
+          status = "primary",
+          solidHeader = TRUE,
+          width = "auto",
+          DT::dataTableOutput("p_values_pc")
+        )
+      )
+    })
   })
 }
 
