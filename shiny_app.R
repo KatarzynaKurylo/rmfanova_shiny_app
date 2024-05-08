@@ -82,11 +82,11 @@ f_point <- function(x, values = FALSE,
 }
 
 main_header <- div(class = "title",
-                  h1('Functional repeated measures analysis of variance'),
+                  h1("Functional repeated measures analysis of variance"),
                   tags$style(".title :is(h1){color: white; text-align: center; margin-top: 10px; font-size: 24px;}")
                   )
 
-header <-  htmltools::tagQuery(dashboardHeader(title="Uploading Files"))
+header <-  htmltools::tagQuery(dashboardHeader(title="",titleWidth = 0))
 
 header <- header$
   addAttrs(style = "position: relative")$ 
@@ -96,12 +96,19 @@ header <- header$
 
 ui <- dashboardPage(
   header,
+  # header = dashboardHeader(
+  #   titleWidth='95%',
+  #   title = span( 
+  #     column(12, class="title-box", 
+  #            tags$h1(class="primary-title", style='margin-top:10px;', "Functional repeated measures analysis of variance"))
+  #     ),
+  #   dropdownMenuOutput("helpMenu")
+  #   ),
   dashboardSidebar(
-    # fileInput("file1", "Choose CSV File",
-    #           multiple = FALSE,
-    #           accept = c("text/csv",
-    #                      "text/comma-separated-values,text/plain",
-    #                      ".csv")),
+    # sidebarMenu(
+    #   menuItem("Uploading Files", tabName = "Uploading Files", icon = icon("file")),
+    #   tags$style(HTML(".sidebar-menu li a { font-size: 18px; }"))
+    # ),
     use_bs_popover(),
     fileInput("file1", "Choose CSV File",
               multiple = FALSE,
@@ -202,6 +209,7 @@ ui <- dashboardPage(
           uiOutput("test_stat_table")
         ),
         fluidRow(
+          downloadButton("download_csv", "Download csv file with p-values", FALSE),
           uiOutput("p_values_table")
         ),
         fluidRow(
@@ -237,7 +245,7 @@ server <- function(input, output) {
         p("\n"),
         a("CRAN rmfanova package", href = "https://cran.r-project.org/web/packages/rmfanova/index.html"),
         p("\n"),
-        p("Authors: Katarzyna Kurylo & Lukasz Smaga",class="author-text")
+        p("Authors: Katarzyna KuryĹ‚o & Ĺukasz Smaga",class="author-text")
       )
     )
   })
@@ -366,6 +374,20 @@ server <- function(input, output) {
     return(res)
   })
   
+  # ls
+  output$download_csv <- downloadHandler(
+    filename = function() {
+      "rmfanova_results.csv"
+    },
+    content = function(file) {
+      res <- rmfanova_result()
+      res_df <- rbind(res$p_values, res$p_values_pc)
+      rownames(res_df) <- c("Global hypothesis", rownames(res$p_values_pc))
+      # Zapisanie danych do pliku CSV
+      write.csv(res_df, file)
+    }
+  )
+  
   output$test_stat <- DT::renderDataTable({
     res <- rmfanova_result()
     df <- as.data.frame(res$test_stat)
@@ -373,7 +395,7 @@ server <- function(input, output) {
   })
   
   output$test_stat_table <- renderUI({
-    res<- rmfanova_result()
+    res <- rmfanova_result()
     box(
       title = "Overall test statistics",
       status = "primary",
@@ -389,7 +411,7 @@ server <- function(input, output) {
   })
   
   output$p_values_table <- renderUI({
-    res<- rmfanova_result()
+    res <- rmfanova_result()
     div(
       style = "margin: 15px;",
       box(
@@ -409,7 +431,7 @@ server <- function(input, output) {
   })
   
   output$p_values_pc_table <- renderUI({
-    res<- rmfanova_result()
+    res <- rmfanova_result()
     div(
       style = "margin: 15px;",
       box(
