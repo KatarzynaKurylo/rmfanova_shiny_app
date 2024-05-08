@@ -31,7 +31,7 @@ mean_fun_point <- function(x, is_legend, is_color, values = FALSE, type = "l", l
   }
   
   p <- layout(p, xaxis = list(title = "t"), yaxis = list(title = "FA"),
-              title = "Sample mean functions by group")
+              title = "Sample mean functions by group",margin=list(t=50))
   return(p)
 }
 
@@ -46,7 +46,7 @@ ssa_point <- function(x, values = FALSE,
                  type = 'scatter', mode = 'lines',
                  line = list(color = "black"))
   p <- layout(p, xaxis = list(title = "t"),
-              title = "SSA(t)")
+              title = "SSA(t)",margin=list(t=50))
   return(p)
 }
 
@@ -77,7 +77,7 @@ f_point <- function(x, values = FALSE,
                  type = 'scatter', mode = 'lines',
                  line = list(color = "black"))
   p <- layout(p, xaxis = list(title = "t"),
-              title = "F(t)")
+              title = "F(t)", margin=list(t=50))
   return(p)
 }
 
@@ -331,7 +331,7 @@ server <- function(input, output) {
           }
         }
         p <- layout(p, xaxis = list(title = x_axis), yaxis = list(title = y_axis), 
-                    title = paste("Group", group_names[i]))
+                    title = paste("Group", group_names[i]), margin=list(t=50))
         return(p)
       })
       #return(plots)
