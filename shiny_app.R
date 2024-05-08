@@ -197,7 +197,9 @@ ui <- dashboardPage(
         checkboxInput("mean_functions_color", "Color", TRUE),
         actionButton("sum_plots_button", "Run"),
         plotlyOutput("mean_functions"),
+        br(),
         plotlyOutput("ssa_statistics"),
+        br(),
         plotlyOutput("f_statistics")
       ),
       tabPanel(
@@ -332,7 +334,12 @@ server <- function(input, output) {
                     title = paste("Group", group_names[i]))
         return(p)
       })
-      return(plots)
+      #return(plots)
+      plots_with_br <- lapply(plots, function(plot) {
+        div(br(),plot)
+      })
+      plots_with_br <- tagList(plots_with_br)
+      return(plots_with_br)
     })
   })
   
