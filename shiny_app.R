@@ -17,27 +17,8 @@ mean_fun_point <- function(x, is_legend, is_color, values = FALSE, type = "l", l
     means[, i] <- colMeans(x[[i]])
   }
   
-  # p <- plot_ly()
-  # for (i in 1:ncol(means)) {
-  #   if (is_color) {
-  #     p <- add_trace(p, x = 1:nrow(means), y = means[,i],
-  #                    type = 'scatter', mode = 'lines',
-  #                    name = paste("Group", i),
-  #                    showlegend = is_legend)
-  #   } else {
-  #     p <- add_trace(p, x = 1:nrow(means), y = means[,i],
-  #                    type = 'scatter', mode = 'lines',
-  #                    name = paste("Group", i),
-  #                    showlegend = is_legend,
-  #                    line = list(color = "black"))  # Set line color to black
-  #   }
-  # }
-  # 
-  # p <- layout(p, xaxis = list(title = "t"), yaxis = list(title = "FA"),
-  #             title = "Sample mean functions by group",margin=list(t=50))
-  # return(p)
-  
   means_long <- tidyr::gather(as.data.frame(means), key = "Group", value = "FA")
+  print(means_long)
   t <- rep(1:nrow(means), ncol(means))
   
   p <- ggplot(data = means_long, aes(x = t, y = FA, group = Group)) +
@@ -66,12 +47,7 @@ ssa_point <- function(x, values = FALSE,
   means_gr <- sapply(x, colMeans)
   means_all <- rowMeans(means_gr)
   ssa <- n * rowSums((means_gr - means_all)^2)
-  # p <- plot_ly()
-  # p <- add_trace(p, x = 1:length(ssa), y = ssa,
-  #                type = 'scatter', mode = 'lines',
-  #                line = list(color = "black"))
-  # p <- layout(p, xaxis = list(title = "t"),
-  #             title = "SSA(t)",margin=list(t=50))
+
   t<-1:length(ssa)
   SSA<-ssa
   p <- ggplot() +
@@ -104,21 +80,6 @@ f_point <- function(x, values = FALSE,
   f_point <- (SSA / (k - 1)) / (SSE / ((n - 1) * (k - 1)))
   f_point <- f_point[is.finite(f_point)]
   f_point <- ifelse(f_point < .Machine$double.eps, 0, f_point)
-  # p <- plot_ly()
-  # p <- add_trace(p, x = 1:length(f_point), y = f_point,
-  #                type = 'scatter', mode = 'lines',
-  #                line = list(color = "black"))
-  # p <- layout(p, xaxis = list(title = "t"),
-  #             title = "F(t)", margin=list(t=50))
-  
-  # t<-1:length(f_point)
-  # p <- ggplot() +
-  #   geom_line(aes(x = t, y = f_point,text = paste('t: ', t,
-  #                                                 '<br>F: ', f_point)), color = "black") +
-  #   labs(x = "t", title = "F(t)") +
-  #   theme_minimal() +
-  #   theme(plot.margin = margin(t = 10, r = 10),plot.title = element_text(hjust = 0.5))
-  # return(ggplotly(p, tooltip = "text"))
   
   t<-1:length(f_point)
   p <- ggplot() +
@@ -342,7 +303,7 @@ server <- function(input, output) {
   #   is_color<-input$color
   #   x_axis<-input$x_axis
   #   y_axis<-input$y_axis
-  #   
+  # 
   #   output$input_df_plots <- renderUI({
   #     req(data())
   #     df <- data()$df
@@ -350,65 +311,76 @@ server <- function(input, output) {
   #     plots <- lapply(1:length(group_names), function(i) {
   #       group_data <- df[df[,1] == group_names[i], -1]
   #       p <- plot_ly()
-  #       for (j in 1:nrow(group_data)) {
-  #         if (is_color) {
-  #           p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
-  #                          type = 'scatter', mode = 'lines', name = paste("Observation", j), 
-  #                          showlegend = is_legend)  #Use default colors
-  #         } else {
-  #           p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
-  #                          type = 'scatter', mode = 'lines', name = paste("Observation", j), 
-  #                          showlegend = is_legend,
-  #                          line = list(color = "black"))  # Set line color to black
+  #         for (j in 1:nrow(group_data)) 
+  #         {
+  #           if (is_color) 
+  #           {
+  #             p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]),
+  #                            type = 'scatter', mode = 'lines', name = paste("Observation", j),
+  #                            showlegend = is_legend)  #Use default colors
+  #           } 
+  #           else 
+  #           {
+  #             p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]),
+  #                            type = 'scatter', mode = 'lines', name = paste("Observation", j),
+  #                            showlegend = is_legend,
+  #                            line = list(color = "black"))  # Set line color to black
+  #           }
   #         }
-  #       }
-  #       p <- layout(p, xaxis = list(title = x_axis), yaxis = list(title = y_axis), 
-  #                   title = paste("Group", group_names[i]), margin=list(t=50))
-  #       return(p)
+  #         p <- layout(p, xaxis = list(title = x_axis), yaxis = list(title = y_axis),
+  #                         title = paste("Group", group_names[i]), margin=list(t=50))
+  #         return(p)
+  #       })
+  #       #return(plots)
+  #       plots_with_br <- lapply(plots, function(plot) {
+  #         div(br(),plot)
+  #       })
+  #       plots_with_br <- tagList(plots_with_br)
+  #       return(plots_with_br)
   #     })
-  #     #return(plots)
-  #     plots_with_br <- lapply(plots, function(plot) {
-  #       div(br(),plot)
-  #     })
-  #     plots_with_br <- tagList(plots_with_br)
-  #     return(plots_with_br)
   #   })
-  # })
-    observeEvent(input$data_vis_button, {
-    is_legend <- input$legend
-    is_color <- input$color
-    x_axis <- input$x_axis
-    y_axis <- input$y_axis
-    
-    output$input_df_plots <- renderUI({
-      req(data())
-      df <- data()$df
-      group_names <- unique(df[, 1])
-      plots <- lapply(1:length(group_names), function(i) {
-        group_data <- df[df[, 1] == group_names[i], -1]
-        p <- ggplot()  # Use ggplot instead of plot_ly
-        for (j in 1:nrow(group_data)) {
-          if (is_color) {
-            p <- p + geom_line(aes(x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
-                                   color = paste("Observation", j)), 
-                               show.legend = is_legend)
-          } else {
-            p <- p + geom_line(aes(x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,])), 
-                               color = "black", show.legend = is_legend)
-          }
-        }
-        p <- p + labs(x = x_axis, y = y_axis, title = paste("Group", group_names[i])) +
-          theme_minimal() +
-          theme(plot.margin = margin(t = 50))
-        p <- ggplotly(p)  # Convert ggplot to plotly
-        return(p)
-      })
-      plots_with_br <- lapply(plots, function(plot) {
-        div(br(), plot)
-      })
-      plots_with_br <- tagList(plots_with_br)
-      return(plots_with_br)
+  observeEvent(input$data_vis_button, {
+  is_legend <- input$legend
+  is_color <- input$color
+  x_axis <- input$x_axis
+  y_axis <- input$y_axis
+
+  output$input_df_plots <- renderUI({
+    req(data())
+    df <- data()$df
+    splited_df <- split(df[, -1], df[, 1])
+    plots <- lapply(1:length(splited_df), function(i) 
+    {
+      df_group<-as.data.frame((splited_df[[i]]))
+      df_group$observation <- factor(1:nrow(df_group))
+      tidy_df <- pivot_longer(df_group, cols = -observation, values_to = "value")
+      #tidy_df$name <- factor(tidy_df$name, levels = unique(tidy_df$name))
+      unique_names <- unique(tidy_df$name)
+      tidy_df$name <- match(tidy_df$name, unique_names)
+      p<-ggplot(tidy_df, aes(x = name, y = value, group = observation)) + #poprawic os x
+        labs(x = x_axis, y = y_axis, title = paste("Group ", i)) +
+        theme_minimal() +
+        theme(plot.margin = margin(t = 10, r = 10), plot.title = element_text(hjust = 0.5))
+      
+      if (is_color) {
+        p <- p + geom_line(aes(color = observation))
+      } else {
+        p <- p + geom_line(color = "black")
+      }
+      
+      if (is_legend) {
+        p <- p + scale_color_discrete(name = "Observation") #nie dziala, powinna sie pokazywac legenda, nawet jak kolor czarny
+      } else {
+        p <- p + guides(color = FALSE)
+      }
+      return(p)
     })
+    plots_with_br <- lapply(plots, function(plot) {
+      div(br(), ggplotly(plot))
+    })
+    plots_with_br <- tagList(plots_with_br)
+    return(plots_with_br)
+  })
   })
   
   
