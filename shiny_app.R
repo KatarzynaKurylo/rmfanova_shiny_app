@@ -52,7 +52,7 @@ ssa_point <- function(x, values = FALSE,
   SSA<-ssa
   p <- ggplot() +
     geom_line(aes(x = t, y = SSA), color = "black") +
-    labs(x = "t", title = "SSA(t)") +
+    labs(x = "t", y="SSA", title = "SSA(t)") +
     theme_minimal() +
     theme(plot.margin = margin(t = 10, r = 10),plot.title = element_text(hjust = 0.5))
   return(p)
@@ -84,7 +84,7 @@ f_point <- function(x, values = FALSE,
   t<-1:length(f_point)
   p <- ggplot() +
     geom_line(aes(x = t, y = f_point), color = "black") +
-    labs(x = "t", title = "F(t)") +
+    labs(x = "t", y="F",title = "F(t)") +
     theme_minimal() +
     theme(plot.margin = margin(t = 10, r = 10),plot.title = element_text(hjust = 0.5))
   return(p)
@@ -168,7 +168,14 @@ ui <- dashboardPage(
         textInput("y_axis", "Provide y axis name:",value="Value"),
         checkboxInput("legend", "Legend", TRUE),
         checkboxInput("color", "Color", TRUE),
-        actionButton("data_vis_button", "Run"),
+        fluidRow(
+          actionButton("data_vis_button", "Run"),
+          tags$div(style = "margin-left: 5px; margin-right: 5px;"),
+          downloadButton("download_input_df_plots", "Download plots as PDF"),
+          tags$div(style = "margin-left: 5px; margin-right: 5px;"),
+          actionButton("Download_png_info", "Download plot as png", icon=icon('question-circle')),
+          #tags$div(style = "margin-top: 5px;", p("You can download the plot as a PNG by clicking on the camera icon, which is located in the upper right corner of each chart."))
+        ),
         uiOutput("input_df_plots")
       ),
       tabPanel(
@@ -176,8 +183,16 @@ ui <- dashboardPage(
         br(),
         checkboxInput("mean_functions_legend", "Legend", TRUE),
         checkboxInput("mean_functions_color", "Color", TRUE),
-        actionButton("sum_plots_button", "Run"),
-        downloadButton("download_summary_plots", "Download plots as PDF"),
+        # actionButton("sum_plots_button", "Run"),
+        # downloadButton("download_summary_plots", "Download plots as PDF"),
+        fluidRow(
+          actionButton("sum_plots_button", "Run"),
+          tags$div(style = "margin-left: 5px; margin-right: 5px;"),
+          downloadButton("download_summary_plots", "Download plots as PDF"),
+          tags$div(style = "margin-left: 5px; margin-right: 5px;"),
+          actionButton("Download_png_info2", "Download plot as png", icon=icon('question-circle')),
+          #tags$div(style = "margin-top: 5px;", p("You can download the plot as a PNG by clicking on the camera icon, which is located in the upper right corner of each chart."))
+        ),
         fluidRow(plotlyOutput("mean_functions"),style = {"padding-top:20px;padding-left:10px;padding-right:10px"}),
         #plotlyOutput("mean_functions"),
         br(),
@@ -210,6 +225,20 @@ server <- function(input, output) {
     showModal(modalDialog(
       title = "File Format",
       "CSV File should have the sample number in the first column. Each of the other columns should indicate a discrete time point. The number of rows should be the number of samples multiplied by the number of observations.",
+      easyClose = TRUE
+    ))
+  })
+  observeEvent(input$Download_png_info, {
+    showModal(modalDialog(
+      title = "Download plot as png",
+      "You can download the plot as a PNG by clicking on the camera icon, which is located in the upper right corner of each chart.",
+      easyClose = TRUE
+    ))
+  })
+  observeEvent(input$Download_png_info2, {
+    showModal(modalDialog(
+      title = "Download plot as png",
+      "You can download the plot as a PNG by clicking on the camera icon, which is located in the upper right corner of each chart.",
       easyClose = TRUE
     ))
   })
@@ -300,6 +329,7 @@ server <- function(input, output) {
   })
   
   output$data_table_box <- renderUI({
+    req(data())
     box(
       title = "Data table",
       status = "primary",
@@ -354,50 +384,65 @@ server <- function(input, output) {
   #       return(plots_with_br)
   #     })
   #   })
-  observeEvent(input$data_vis_button, {
-  is_legend <- input$legend
-  is_color <- input$color
-  x_axis <- input$x_axis
-  y_axis <- input$y_axis
-
-  output$input_df_plots <- renderUI({
-    req(data())
-    df <- data()$df
-    splited_df <- split(df[, -1], df[, 1])
-    plots <- lapply(1:length(splited_df), function(i) 
-    {
-      df_group<-as.data.frame((splited_df[[i]]))
-      df_group$observation <- factor(1:nrow(df_group))
-      tidy_df <- pivot_longer(df_group, cols = -observation, values_to = "value")
-      #tidy_df$name <- factor(tidy_df$name, levels = unique(tidy_df$name))
-      unique_names <- unique(tidy_df$name)
-      tidy_df$name <- match(tidy_df$name, unique_names)
-      p<-ggplot(tidy_df, aes(x = name, y = value, group = observation)) + #poprawic os x
-        labs(x = x_axis, y = y_axis, title = paste("Group ", i)) +
-        theme_minimal() +
-        theme(plot.margin = margin(t = 10, r = 10), plot.title = element_text(hjust = 0.5))
-      
-      if (is_color) {
-        p <- p + geom_line(aes(color = observation))
-      } else {
-        p <- p + geom_line(color = "black")
-      }
-      
-      if (is_legend) {
-        p <- p + scale_color_discrete(name = "Observation") #nie dziala, powinna sie pokazywac legenda, nawet jak kolor czarny
-      } else {
-        p <- p + guides(color = FALSE)
-      }
-      return(p)
-    })
-    plots_with_br <- lapply(plots, function(plot) {
-      div(br(), ggplotly(plot))
-    })
-    plots_with_br <- tagList(plots_with_br)
-    return(plots_with_br)
-  })
-  })
   
+  observeEvent(input$data_vis_button, {
+    is_legend <- input$legend
+    is_color <- input$color
+    x_axis <- input$x_axis
+    y_axis <- input$y_axis
+  
+    input_df_plots_ggplot <- reactive({
+        req(data())
+        df <- data()$df
+        splited_df <- split(df[, -1], df[, 1])
+        plots <- lapply(1:length(splited_df), function(i) 
+        {
+          df_group<-as.data.frame((splited_df[[i]]))
+          df_group$observation <- factor(1:nrow(df_group))
+          tidy_df <- pivot_longer(df_group, cols = -observation, values_to = "value")
+          #tidy_df$name <- factor(tidy_df$name, levels = unique(tidy_df$name))
+          unique_names <- unique(tidy_df$name)
+          tidy_df$name <- match(tidy_df$name, unique_names)
+          p<-ggplot(tidy_df, aes(x = name, y = value, group = observation)) +
+            labs(x = x_axis, y = y_axis, title = paste("Group ", i)) +
+            theme_minimal() +
+            theme(plot.margin = margin(t = 10, r = 10), plot.title = element_text(hjust = 0.5))
+          
+          if (is_color) {
+            p <- p + geom_line(aes(color = observation))
+          } else {
+            p <- p + geom_line(color = "black")
+          }
+          
+          if (is_legend) {
+            p <- p + scale_color_discrete(name = "Observation") #nie dziala, powinna sie pokazywac legenda, nawet jak kolor czarny
+          } else {
+            p <- p + guides(color = FALSE)
+          }
+          return(p)
+        })
+        return(plots)
+    })
+    
+    output$input_df_plots <- renderUI({
+        ggplotly_plots <- lapply(input_df_plots_ggplot(), function(plot) {
+          div(br(), ggplotly(plot))
+        })
+      return(ggplotly_plots)
+    })
+    
+    output$download_input_df_plots <- downloadHandler(
+      filename = function() {
+        "data_visualisation.pdf"
+      },
+      content = function(file) {
+        pdf(file)
+        lapply(input_df_plots_ggplot(), function(plot) {
+          print(plot)
+        })
+        dev.off()
+      })
+  })
   
   observeEvent(input$sum_plots_button, {
     is_legend<-input$mean_functions_legend
