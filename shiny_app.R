@@ -6,6 +6,7 @@ library(plotly)
 library(rmfanova)
 library(data.table)
 library(bs4Dash)
+library(ggplot2)
 
 mean_fun_point <- function(x, is_legend, is_color, values = FALSE, type = "l", lty = 1, ...) {
   p <- ncol(x[[1]])
@@ -15,25 +16,42 @@ mean_fun_point <- function(x, is_legend, is_color, values = FALSE, type = "l", l
     means[, i] <- colMeans(x[[i]])
   }
   
-  p <- plot_ly()
+  # p <- plot_ly()
+  # for (i in 1:ncol(means)) {
+  #   if (is_color) {
+  #     p <- add_trace(p, x = 1:nrow(means), y = means[,i],
+  #                    type = 'scatter', mode = 'lines',
+  #                    name = paste("Group", i),
+  #                    showlegend = is_legend)
+  #   } else {
+  #     p <- add_trace(p, x = 1:nrow(means), y = means[,i],
+  #                    type = 'scatter', mode = 'lines',
+  #                    name = paste("Group", i),
+  #                    showlegend = is_legend,
+  #                    line = list(color = "black"))  # Set line color to black
+  #   }
+  # }
+  # 
+  # p <- layout(p, xaxis = list(title = "t"), yaxis = list(title = "FA"),
+  #             title = "Sample mean functions by group",margin=list(t=50))
+  # return(p)
+  p <- ggplot()
   for (i in 1:ncol(means)) {
     if (is_color) {
-      p <- add_trace(p, x = 1:nrow(means), y = means[,i],
-                     type = 'scatter', mode = 'lines',
-                     name = paste("Group", i),
-                     showlegend = is_legend)
+      p <- p + geom_line(aes(x = 1:nrow(means), y = means[,i], color = paste("Group", i)), 
+                         show.legend = is_legend)
     } else {
-      p <- add_trace(p, x = 1:nrow(means), y = means[,i],
-                     type = 'scatter', mode = 'lines',
-                     name = paste("Group", i),
-                     showlegend = is_legend,
-                     line = list(color = "black"))  # Set line color to black
+      p <- p + geom_line(aes(x = 1:nrow(means), y = means[,i]), 
+                         color = "black", show.legend = is_legend)
     }
   }
   
-  p <- layout(p, xaxis = list(title = "t"), yaxis = list(title = "FA"),
-              title = "Sample mean functions by group",margin=list(t=50))
-  return(p)
+  p <- p + labs(x = "t", y = "FA", title = "Sample mean functions by group") +
+    theme_minimal() +
+    theme(plot.margin = margin(t = 50))
+  
+  return(ggplotly(p))
+  
 }
 
 ssa_point <- function(x, values = FALSE, 
@@ -42,12 +60,19 @@ ssa_point <- function(x, values = FALSE,
   means_gr <- sapply(x, colMeans)
   means_all <- rowMeans(means_gr)
   ssa <- n * rowSums((means_gr - means_all)^2)
-  p <- plot_ly()
-  p <- add_trace(p, x = 1:length(ssa), y = ssa,
-                 type = 'scatter', mode = 'lines',
-                 line = list(color = "black"))
-  p <- layout(p, xaxis = list(title = "t"),
-              title = "SSA(t)",margin=list(t=50))
+  # p <- plot_ly()
+  # p <- add_trace(p, x = 1:length(ssa), y = ssa,
+  #                type = 'scatter', mode = 'lines',
+  #                line = list(color = "black"))
+  # p <- layout(p, xaxis = list(title = "t"),
+  #             title = "SSA(t)",margin=list(t=50))
+  t<-1:length(ssa)
+  SSA<-ssa
+  p <- ggplot() +
+    geom_line(aes(x = t, y = SSA), color = "black") +
+    labs(x = "t", title = "SSA(t)") +
+    theme_minimal() +
+    theme(plot.margin = margin(t = 10, r = 10),plot.title = element_text(hjust = 0.5))
   return(p)
 }
 
@@ -73,12 +98,28 @@ f_point <- function(x, values = FALSE,
   f_point <- (SSA / (k - 1)) / (SSE / ((n - 1) * (k - 1)))
   f_point <- f_point[is.finite(f_point)]
   f_point <- ifelse(f_point < .Machine$double.eps, 0, f_point)
-  p <- plot_ly()
-  p <- add_trace(p, x = 1:length(f_point), y = f_point,
-                 type = 'scatter', mode = 'lines',
-                 line = list(color = "black"))
-  p <- layout(p, xaxis = list(title = "t"),
-              title = "F(t)", margin=list(t=50))
+  # p <- plot_ly()
+  # p <- add_trace(p, x = 1:length(f_point), y = f_point,
+  #                type = 'scatter', mode = 'lines',
+  #                line = list(color = "black"))
+  # p <- layout(p, xaxis = list(title = "t"),
+  #             title = "F(t)", margin=list(t=50))
+  
+  # t<-1:length(f_point)
+  # p <- ggplot() +
+  #   geom_line(aes(x = t, y = f_point,text = paste('t: ', t,
+  #                                                 '<br>F: ', f_point)), color = "black") +
+  #   labs(x = "t", title = "F(t)") +
+  #   theme_minimal() +
+  #   theme(plot.margin = margin(t = 10, r = 10),plot.title = element_text(hjust = 0.5))
+  # return(ggplotly(p, tooltip = "text"))
+  
+  t<-1:length(f_point)
+  p <- ggplot() +
+    geom_line(aes(x = t, y = f_point), color = "black") +
+    labs(x = "t", title = "F(t)") +
+    theme_minimal() +
+    theme(plot.margin = margin(t = 10, r = 10),plot.title = element_text(hjust = 0.5))
   return(p)
 }
 
@@ -168,6 +209,7 @@ ui <- dashboardPage(
         checkboxInput("mean_functions_legend", "Legend", TRUE),
         checkboxInput("mean_functions_color", "Color", TRUE),
         actionButton("sum_plots_button", "Run"),
+        downloadButton("download_summary_plots", "Download plots as PDF"),
         fluidRow(plotlyOutput("mean_functions"),style = {"padding-top:20px;padding-left:10px;padding-right:10px"}),
         #plotlyOutput("mean_functions"),
         br(),
@@ -289,43 +331,80 @@ server <- function(input, output) {
     return(data()$df)
   })
   
-  observeEvent(input$data_vis_button, {
-    is_legend<-input$legend
-    is_color<-input$color
-    x_axis<-input$x_axis
-    y_axis<-input$y_axis
+  # observeEvent(input$data_vis_button, {
+  #   is_legend<-input$legend
+  #   is_color<-input$color
+  #   x_axis<-input$x_axis
+  #   y_axis<-input$y_axis
+  #   
+  #   output$input_df_plots <- renderUI({
+  #     req(data())
+  #     df <- data()$df
+  #     group_names <- unique(df[,1])
+  #     plots <- lapply(1:length(group_names), function(i) {
+  #       group_data <- df[df[,1] == group_names[i], -1]
+  #       p <- plot_ly()
+  #       for (j in 1:nrow(group_data)) {
+  #         if (is_color) {
+  #           p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
+  #                          type = 'scatter', mode = 'lines', name = paste("Observation", j), 
+  #                          showlegend = is_legend)  #Use default colors
+  #         } else {
+  #           p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
+  #                          type = 'scatter', mode = 'lines', name = paste("Observation", j), 
+  #                          showlegend = is_legend,
+  #                          line = list(color = "black"))  # Set line color to black
+  #         }
+  #       }
+  #       p <- layout(p, xaxis = list(title = x_axis), yaxis = list(title = y_axis), 
+  #                   title = paste("Group", group_names[i]), margin=list(t=50))
+  #       return(p)
+  #     })
+  #     #return(plots)
+  #     plots_with_br <- lapply(plots, function(plot) {
+  #       div(br(),plot)
+  #     })
+  #     plots_with_br <- tagList(plots_with_br)
+  #     return(plots_with_br)
+  #   })
+  # })
+    observeEvent(input$data_vis_button, {
+    is_legend <- input$legend
+    is_color <- input$color
+    x_axis <- input$x_axis
+    y_axis <- input$y_axis
     
     output$input_df_plots <- renderUI({
       req(data())
       df <- data()$df
-      group_names <- unique(df[,1])
+      group_names <- unique(df[, 1])
       plots <- lapply(1:length(group_names), function(i) {
-        group_data <- df[df[,1] == group_names[i], -1]
-        p <- plot_ly()
+        group_data <- df[df[, 1] == group_names[i], -1]
+        p <- ggplot()  # Use ggplot instead of plot_ly
         for (j in 1:nrow(group_data)) {
           if (is_color) {
-            p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
-                           type = 'scatter', mode = 'lines', name = paste("Observation", j), 
-                           showlegend = is_legend)  #Use default colors
+            p <- p + geom_line(aes(x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
+                                   color = paste("Observation", j)), 
+                               show.legend = is_legend)
           } else {
-            p <- add_trace(p, x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,]), 
-                           type = 'scatter', mode = 'lines', name = paste("Observation", j), 
-                           showlegend = is_legend,
-                           line = list(color = "black"))  # Set line color to black
+            p <- p + geom_line(aes(x = seq(1, ncol(group_data)), y = as.numeric(group_data[j,])), 
+                               color = "black", show.legend = is_legend)
           }
         }
-        p <- layout(p, xaxis = list(title = x_axis), yaxis = list(title = y_axis), 
-                    title = paste("Group", group_names[i]), margin=list(t=50))
+        p <- p + labs(x = x_axis, y = y_axis, title = paste("Group", group_names[i])) +
+          theme_minimal() +
+          theme(plot.margin = margin(t = 50))
+        p <- ggplotly(p)  # Convert ggplot to plotly
         return(p)
       })
-      #return(plots)
       plots_with_br <- lapply(plots, function(plot) {
-        div(br(),plot)
+        div(br(), plot)
       })
       plots_with_br <- tagList(plots_with_br)
       return(plots_with_br)
     })
   })
+  
   
   observeEvent(input$sum_plots_button, {
     is_legend<-input$mean_functions_legend
@@ -339,19 +418,39 @@ server <- function(input, output) {
       return(p)
     })
     
-    output$ssa_statistics <- renderPlotly({
+    ssa_statistics_ggplot <- reactive({
       req(data())
       yy <- data()$matrix
       ssa <- ssa_point(yy, xlab = "t", xaxt = "n")
       return(ssa)
     })
     
-    output$f_statistics <- renderPlotly({
+    output$ssa_statistics <- renderPlotly({
+      return(ggplotly(ssa_statistics_ggplot()))
+    })
+    
+    f_statistics_ggplot <- reactive({
       req(data())
       yy <- data()$matrix
       f <- f_point(yy, xlab = "t", xaxt = "n")
       return(f)
     })
+    
+    output$f_statistics <- renderPlotly({
+      return(ggplotly(f_statistics_ggplot()))
+    })
+    
+    output$download_summary_plots <- downloadHandler(
+      filename = function() {
+        "summary_plots.pdf"
+      },
+      content = function(file) {
+        pdf(file)
+        print(ssa_statistics_ggplot())
+        print(f_statistics_ggplot())
+        dev.off()
+      })
+  
   })
   
   observeEvent(input$hyp_test_button, {
