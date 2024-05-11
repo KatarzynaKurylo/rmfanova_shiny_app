@@ -1,10 +1,11 @@
 library(shiny)
-library(shinydashboard)
+#library(shinydashboard)
 library(shinybusy) # for loading spinner
-library(bsplus) #for info popover
+#library(bsplus) #for info popover
 library(plotly)
 library(rmfanova)
 library(data.table)
+library(bs4Dash)
 
 mean_fun_point <- function(x, is_legend, is_color, values = FALSE, type = "l", lty = 1, ...) {
   p <- ncol(x[[1]])
@@ -81,48 +82,26 @@ f_point <- function(x, values = FALSE,
   return(p)
 }
 
-main_header <- div(class = "title",
-                   h1("Functional repeated measures analysis of variance"),
-                   tags$style(".title :is(h1){color: white; text-align: center; margin-top: 10px; font-size: 24px;}")
-)
-
-header <-  htmltools::tagQuery(dashboardHeader(title="",titleWidth = 0))
-
-header <- header$
-  addAttrs(style = "position: relative")$ 
-  find(".navbar.navbar-static-top")$
-  append(main_header)$ # inject our main header
-  allTags()
-
 ui <- dashboardPage(
-  header,
-  # header = dashboardHeader(
-  #   titleWidth='95%',
-  #   title = span( 
-  #     column(12, class="title-box", 
-  #            tags$h1(class="primary-title", style='margin-top:10px;', "Functional repeated measures analysis of variance"))
-  #     ),
-  #   dropdownMenuOutput("helpMenu")
-  #   ),
+  help = NULL,
+  header = dashboardHeader(
+             tags$h4(style={'margin-top:10px;'}, "Functional repeated measures analysis of variance") # margin-left:100px; text-align: center;
+    ),
+  #dashboardHeader("Functional repeated measures analysis of variance"),
   dashboardSidebar(
-    # sidebarMenu(
-    #   menuItem("Uploading Files", tabName = "Uploading Files", icon = icon("file")),
-    #   tags$style(HTML(".sidebar-menu li a { font-size: 18px; }"))
-    # ),
-    use_bs_popover(),
+    sidebarMenu(
+      menuItem("Uploading Files", tabName = "Uploading Files")
+      #tags$style(HTML(".sidebar-menu li a { font-size: 18px; }"))
+    ),
+    #use_bs_popover(),
+    minified = F,
+    actionButton("File_format_info", "", icon=icon('question-circle'),class = "btn-xs"),
     fileInput("file1", "Choose CSV File",
               multiple = FALSE,
               accept = c("text/csv",
                          "text/comma-separated-values,text/plain",
-                         ".csv")) %>%
-      shinyInput_label_embed(
-        shiny_iconlink() %>%
-          bs_embed_popover(
-            title = "File Format", 
-            content = "CSV File should have the sample number in the first column. Each of the other columns should indicate a discrete time point. The number of rows should be the number of samples multiplied by the number of observations.", 
-            placement ="right"
-          )
-      ),
+                         ".csv")
+              ),
     tags$hr(),
     checkboxInput("header", "Header", TRUE),
     radioButtons("sep", "Separator",
@@ -138,27 +117,20 @@ ui <- dashboardPage(
     tags$hr()
   ),
   dashboardBody(
-    tags$style(HTML('.popover-title {color:black;}
-                               .popover-content {color:black;max-width: 400px;min-width: 200px; text-align: justify;}
-                               .main-sidebar {z-index:auto;}
-                                }')),
-    tags$head(tags$style(HTML('
-      .main-header .logo {
-        font-size: 20px;
-      }
-      .author-text {
-        text-align: right;
-      }
-    '))),
-    add_busy_spinner(spin = "fading-circle", 
-                     margins = c(5, 5),
+    # tags$style(HTML('.popover-title {color:black;}
+    #                            .popover-content {color:black;max-width: 400px;min-width: 200px; text-align: justify;}
+    #                            .main-sidebar {z-index:auto;}
+    #                             }')),
+    add_busy_spinner(spin = "fading-circle",
+                     margins = c(70, 20),
                      height = "40px",
                      width = "40px",
-                     color = "white"
+                     color = "blue"
     ),
     tabsetPanel(
       tabPanel(
         title = "Info",
+        br(),
         uiOutput("informations")
       ),
       tabPanel(
@@ -196,7 +168,8 @@ ui <- dashboardPage(
         checkboxInput("mean_functions_legend", "Legend", TRUE),
         checkboxInput("mean_functions_color", "Color", TRUE),
         actionButton("sum_plots_button", "Run"),
-        plotlyOutput("mean_functions"),
+        fluidRow(plotlyOutput("mean_functions"),style = {"padding-top:20px;padding-left:10px;padding-right:10px"}),
+        #plotlyOutput("mean_functions"),
         br(),
         plotlyOutput("ssa_statistics"),
         br(),
@@ -211,21 +184,25 @@ ui <- dashboardPage(
         checkboxInput("multi_gen", "Multiple generations", FALSE),
         actionButton("hyp_test_button", "Run"),
         downloadButton("download_csv", "Download csv file with p-values", FALSE),
-        fluidRow(
-          uiOutput("test_stat_table")
-        ),
-        fluidRow(
-          uiOutput("p_values_table")
-        ),
-        fluidRow(
-          uiOutput("p_values_pc_table")
-        )
+        #fluidRow(uiOutput("test_stat_table"),style={"overflow-x: auto;padding-top:20px;"}),
+        # fluidRow(uiOutput("p_values_table")),
+        # fluidRow(uiOutput("p_values_pc_table")),
+        uiOutput("test_stat_table",style="auto;padding-top:20px;"),
+        uiOutput("p_values_table"),
+        uiOutput("p_values_pc_table")
       )
     )
   )
 )
 
 server <- function(input, output) {
+  observeEvent(input$File_format_info, {
+    showModal(modalDialog(
+      title = "File Format",
+      "CSV File should have the sample number in the first column. Each of the other columns should indicate a discrete time point. The number of rows should be the number of samples multiplied by the number of observations.",
+      easyClose = TRUE
+    ))
+  })
   output$informations<- renderUI({
     tagList(
       tags$style(
@@ -238,11 +215,17 @@ server <- function(input, output) {
           padding: 10px;
           margin-bottom: 10px;
         }
+        .author-text {
+        text-align: right;
+      }
       ")
       ),
-      br(),
-      div(
-        class = "info-box",
+    #   #br(),
+    #    div(
+    #      class = "info-box",
+    #      #width=30,
+         box(width=12,
+              collapsible = FALSE,
         p("Functional data analysis (FDA) is a branch of statistics which analyzes observations treated as functions, curves, or surfaces. To represent the data in such a way, one needs only to measure some variable over time or space, which is a scenario encountered in many fields. Then the discrete data observed at so-called design time points can be transformed into functional data. Such a representation allows us to avoid many problems of classical multivariate statistical methods, for example, the curse of dimensionality and missing data. ", class = "text-justified"),
         p("To compare the results for different samples, we thus consider functional repeated measures analysis of variance. For this purpose, a pointwise test statistic is constructed by adapting the classical test statistic for one-way repeated measures analysis of variance to the functional data framework. By integrating and taking the supremum of the pointwise test statistic, we create two global test statistics. Apart from verifying the general null hypothesis on the equality of mean functions corresponding to different objects, we also propose a simple method for post hoc analysis.", class = "text-justified"),
         p("Feel free to explore these resources for more information:"),
@@ -251,8 +234,9 @@ server <- function(input, output) {
         a("CRAN rmfanova package", href = "https://cran.r-project.org/web/packages/rmfanova/index.html"),
         p("\n"),
         p("Authors: Katarzyna KuryĹ‚o & Ĺukasz Smaga",class="author-text")
+         )
       )
-    )
+    #)
   })
   
   data <- reactive({
@@ -276,7 +260,7 @@ server <- function(input, output) {
     valueBox(
       value = nrow(x[[1]]),
       subtitle = "Number of Observations",
-      color = "blue"
+      color = "primary"#blue"
     )
   })
   
@@ -286,7 +270,7 @@ server <- function(input, output) {
     valueBox(
       value = ncol(x[[1]]),
       subtitle = "Number of Design Time Points",
-      color = "blue"
+      color = "primary"#blue"
     )
   })
   
@@ -296,7 +280,7 @@ server <- function(input, output) {
     valueBox(
       value = length(x),
       subtitle = "Number of Samples",
-      color = "blue"
+      color = "primary"#blue"
     )
   })
   
@@ -416,6 +400,7 @@ server <- function(input, output) {
         title = "Overall test statistics",
         status = "primary",
         solidHeader = TRUE,
+        width=12,
         DT::dataTableOutput("test_stat")
       )
     })
@@ -428,36 +413,38 @@ server <- function(input, output) {
     
     output$p_values_table <- renderUI({
       res <- rmfanova_result()
-      div(
-        style = "margin: 15px;",
+      # div(
+      #   style = "margin: 5px;",
         box(
           title = "Overall p-values",
           status = "primary",
           solidHeader = TRUE,
-          width = "auto",
+          #width = "auto",
+          width=12,
           DT::dataTableOutput("p_values")
         )
-      )
+      #)
     })
     
     output$p_values_pc <- DT::renderDataTable({
       res <- rmfanova_result()
       df <- as.data.frame(res$p_values_pc)
-      return(DT::datatable(df,options = list(scrollX = TRUE)))#, options = list(dom = 't', pageLength = 5)))
+      return(DT::datatable(df,options = list(dom = 't',scrollX = TRUE)))#, options = list(dom = 't', pageLength = 5)))
     })
     
     output$p_values_pc_table <- renderUI({
       res <- rmfanova_result()
-      div(
-        style = "margin: 15px;",
+      # div(
+      #   style = "margin: 5px;",
         box(
           title = "Pairwise comparison p-values",
           status = "primary",
           solidHeader = TRUE,
-          width = "auto",
+          #width = "auto",
+          width=12,
           DT::dataTableOutput("p_values_pc")
         )
-      )
+      #)
     })
   })
 }
