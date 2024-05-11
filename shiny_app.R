@@ -17,8 +17,7 @@ mean_fun_point <- function(x, is_legend, is_color, values = FALSE, type = "l", l
     means[, i] <- colMeans(x[[i]])
   }
   
-  means_long <- tidyr::gather(as.data.frame(means), key = "Group", value = "FA")
-  print(means_long)
+  means_long <- gather(as.data.frame(means), key = "Group", value = "FA")
   t <- rep(1:nrow(means), ncol(means))
   
   p <- ggplot(data = means_long, aes(x = t, y = FA, group = Group)) +
@@ -33,7 +32,7 @@ mean_fun_point <- function(x, is_legend, is_color, values = FALSE, type = "l", l
   }
   
   if (is_legend) {
-    p <- p + scale_color_discrete(name = "Group") #nie dziala, powinna sie pokazywac legenda, nawet jak kolor czarny
+    p <- p + scale_color_discrete(name = "Group")
   } else {
     p <- p + guides(color = FALSE)
   }
@@ -101,7 +100,6 @@ ui <- dashboardPage(
       menuItem("Uploading Files", tabName = "Uploading Files")
       #tags$style(HTML(".sidebar-menu li a { font-size: 18px; }"))
     ),
-    #use_bs_popover(),
     minified = F,
     actionButton("File_format_info", "", icon=icon('question-circle'),class = "btn-xs"),
     fileInput("file1", "Choose CSV File",
@@ -125,10 +123,6 @@ ui <- dashboardPage(
     tags$hr()
   ),
   dashboardBody(
-    # tags$style(HTML('.popover-title {color:black;}
-    #                            .popover-content {color:black;max-width: 400px;min-width: 200px; text-align: justify;}
-    #                            .main-sidebar {z-index:auto;}
-    #                             }')),
     add_busy_spinner(spin = "fading-circle",
                      margins = c(70, 20),
                      height = "40px",
@@ -170,11 +164,11 @@ ui <- dashboardPage(
         checkboxInput("color", "Color", TRUE),
         fluidRow(
           actionButton("data_vis_button", "Run"),
-          tags$div(style = "margin-left: 5px; margin-right: 5px;"),
+          tags$div(style = "margin-left: 2px; margin-right: 2px;"),
           downloadButton("download_input_df_plots", "Download plots as PDF"),
-          tags$div(style = "margin-left: 5px; margin-right: 5px;"),
+          tags$div(style = "margin-left: 2px; margin-right: 2px;"),
           actionButton("Download_png_info", "Download plot as png", icon=icon('question-circle')),
-          #tags$div(style = "margin-top: 5px;", p("You can download the plot as a PNG by clicking on the camera icon, which is located in the upper right corner of each chart."))
+          #tags$div(style = "margin-top: 1px;", p("You can download the plot as a PNG by clicking on the camera icon, which is located in the upper right corner of each chart."))
         ),
         uiOutput("input_df_plots")
       ),
@@ -187,11 +181,11 @@ ui <- dashboardPage(
         # downloadButton("download_summary_plots", "Download plots as PDF"),
         fluidRow(
           actionButton("sum_plots_button", "Run"),
-          tags$div(style = "margin-left: 5px; margin-right: 5px;"),
+          tags$div(style = "margin-left: 2px; margin-right: 2px;"),
           downloadButton("download_summary_plots", "Download plots as PDF"),
-          tags$div(style = "margin-left: 5px; margin-right: 5px;"),
+          tags$div(style = "margin-left: 2px; margin-right: 2px;"),
           actionButton("Download_png_info2", "Download plot as png", icon=icon('question-circle')),
-          #tags$div(style = "margin-top: 5px;", p("You can download the plot as a PNG by clicking on the camera icon, which is located in the upper right corner of each chart."))
+          #tags$div(style = "margin-top: 1px;", p("You can download the plot as a PNG by clicking on the camera icon, which is located in the upper right corner of each chart."))
         ),
         fluidRow(plotlyOutput("mean_functions"),style = {"padding-top:20px;padding-left:10px;padding-right:10px"}),
         #plotlyOutput("mean_functions"),
@@ -207,8 +201,11 @@ ui <- dashboardPage(
         numericInput("n_boot", "Number of bootstrap replicates:", value = 1000, min = 1, step = 1),
         checkboxInput("parallel", "Parallel computing", FALSE),
         checkboxInput("multi_gen", "Multiple generations", FALSE),
-        actionButton("hyp_test_button", "Run"),
-        downloadButton("download_csv", "Download csv file with p-values", FALSE),
+        fluidRow(
+          actionButton("hyp_test_button", "Run"),
+          tags$div(style = "margin-left: 2px; margin-right: 2px;"),
+          downloadButton("download_csv", "Download csv file with p-values", FALSE)
+        ),
         #fluidRow(uiOutput("test_stat_table"),style={"overflow-x: auto;padding-top:20px;"}),
         # fluidRow(uiOutput("p_values_table")),
         # fluidRow(uiOutput("p_values_pc_table")),
