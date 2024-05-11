@@ -149,10 +149,11 @@ ui <- dashboardPage(
           valueBoxOutput("dataset_n"), #number of observations
           valueBoxOutput("dataset_p") #number of time points
         ),
-        div(
-          style = "overflow-x: auto;",
-          DT::dataTableOutput("data_table")
-        )
+        # div(
+        #   style = "overflow-x: auto;",
+        #   DT::dataTableOutput("data_table")
+        # )
+        uiOutput("data_table_box")
       ),
       tabPanel(
         title = "Data visualisation",
@@ -295,7 +296,21 @@ server <- function(input, output) {
   
   output$data_table <- DT::renderDataTable({
     req(data())
-    return(data()$df)
+    return(DT::datatable(data()$df, options = list(dom = 't',scrollX = TRUE)))
+  })
+  
+  output$data_table_box <- renderUI({
+    box(
+      title = "Data table",
+      status = "primary",
+      solidHeader = TRUE,
+      #width = "auto",
+      background = "white",
+      collapsible = FALSE,
+      width=12,
+      DT::dataTableOutput("data_table")
+    )
+    #)
   })
   
   # observeEvent(input$data_vis_button, {
@@ -482,6 +497,8 @@ server <- function(input, output) {
         title = "Overall test statistics",
         status = "primary",
         solidHeader = TRUE,
+        background = "white",
+        collapsible = FALSE,
         width=12,
         DT::dataTableOutput("test_stat")
       )
@@ -502,6 +519,8 @@ server <- function(input, output) {
           status = "primary",
           solidHeader = TRUE,
           #width = "auto",
+          background = "white",
+          collapsible = FALSE,
           width=12,
           DT::dataTableOutput("p_values")
         )
@@ -523,6 +542,8 @@ server <- function(input, output) {
           status = "primary",
           solidHeader = TRUE,
           #width = "auto",
+          background = "white",
+          collapsible = FALSE,
           width=12,
           DT::dataTableOutput("p_values_pc")
         )
