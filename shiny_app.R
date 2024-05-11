@@ -7,6 +7,7 @@ library(rmfanova)
 library(data.table)
 library(bs4Dash)
 library(ggplot2)
+library(tidyr)
 
 mean_fun_point <- function(x, is_legend, is_color, values = FALSE, type = "l", lty = 1, ...) {
   p <- ncol(x[[1]])
@@ -35,23 +36,28 @@ mean_fun_point <- function(x, is_legend, is_color, values = FALSE, type = "l", l
   # p <- layout(p, xaxis = list(title = "t"), yaxis = list(title = "FA"),
   #             title = "Sample mean functions by group",margin=list(t=50))
   # return(p)
-  p <- ggplot()
-  for (i in 1:ncol(means)) {
-    if (is_color) {
-      p <- p + geom_line(aes(x = 1:nrow(means), y = means[,i], color = paste("Group", i)), 
-                         show.legend = is_legend)
-    } else {
-      p <- p + geom_line(aes(x = 1:nrow(means), y = means[,i]), 
-                         color = "black", show.legend = is_legend)
-    }
+  
+  means_long <- tidyr::gather(as.data.frame(means), key = "Group", value = "FA")
+  t <- rep(1:nrow(means), ncol(means))
+  
+  p <- ggplot(data = means_long, aes(x = t, y = FA, group = Group)) +
+    labs(x = "t", y = "FA", title = "Sample mean functions by group") +
+    theme_minimal() +
+    theme(plot.margin = margin(t = 10, r = 10), plot.title = element_text(hjust = 0.5))
+  
+  if (is_color) {
+    p <- p + geom_line(aes(color = Group))
+  } else {
+    p <- p + geom_line(color = "black")
   }
   
-  p <- p + labs(x = "t", y = "FA", title = "Sample mean functions by group") +
-    theme_minimal() +
-    theme(plot.margin = margin(t = 50))
+  if (is_legend) {
+    p <- p + scale_color_discrete(name = "Group") #nie dziala, powinna sie pokazywac legenda, nawet jak kolor czarny
+  } else {
+    p <- p + guides(color = FALSE)
+  }
   
-  return(ggplotly(p))
-  
+  return(p)
 }
 
 ssa_point <- function(x, values = FALSE, 
@@ -410,12 +416,16 @@ server <- function(input, output) {
     is_legend<-input$mean_functions_legend
     is_color<-input$mean_functions_color
     
-    output$mean_functions <- renderPlotly({
+    mean_functions_ggplot <- reactive({
       req(data())
       yy <- data()$matrix
       p<-mean_fun_point(yy, is_legend, is_color, values = FALSE, 
                         col = 1:4, xlab = "t", ylab = "FA", xaxt = "n")
       return(p)
+    })
+    
+    output$mean_functions <- renderPlotly({
+      return(mean_functions_ggplot())
     })
     
     ssa_statistics_ggplot <- reactive({
@@ -426,7 +436,7 @@ server <- function(input, output) {
     })
     
     output$ssa_statistics <- renderPlotly({
-      return(ggplotly(ssa_statistics_ggplot()))
+      return(ssa_statistics_ggplot())
     })
     
     f_statistics_ggplot <- reactive({
@@ -437,7 +447,7 @@ server <- function(input, output) {
     })
     
     output$f_statistics <- renderPlotly({
-      return(ggplotly(f_statistics_ggplot()))
+      return(f_statistics_ggplot())
     })
     
     output$download_summary_plots <- downloadHandler(
@@ -446,6 +456,7 @@ server <- function(input, output) {
       },
       content = function(file) {
         pdf(file)
+        print(mean_functions_ggplot())
         print(ssa_statistics_ggplot())
         print(f_statistics_ggplot())
         dev.off()
