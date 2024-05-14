@@ -9,6 +9,23 @@ library(bs4Dash)
 library(ggplot2)
 library(tidyr)
 
+plot_customization<-function(p,is_legend,is_color,group){
+  if (is_legend) {
+    if (is_color) {
+      p <- p + geom_line(aes(color = group))
+    } else {
+      p <- p + geom_line(aes(linetype=group),color="black")
+    }
+  } else {
+    if (is_color) {
+      p <- p + geom_line(aes(color = group)) +guides(color = FALSE)
+    } else {
+      p <- p + geom_line(color="black")+guides(color = FALSE)
+    }
+  }
+  return(p)
+}
+
 mean_fun_point <- function(x, is_legend, is_color, values = FALSE, type = "l", lty = 1, ...) {
   p <- ncol(x[[1]])
   l <- length(x)
@@ -25,17 +42,7 @@ mean_fun_point <- function(x, is_legend, is_color, values = FALSE, type = "l", l
     theme_minimal() +
     theme(plot.margin = margin(t = 10, r = 10), plot.title = element_text(hjust = 0.5))
   
-  if (is_color) {
-    p <- p + geom_line(aes(color = Group))
-  } else {
-    p <- p + geom_line(color = "black")
-  }
-  
-  if (is_legend) {
-    p <- p + scale_color_discrete(name = "Group")
-  } else {
-    p <- p + guides(color = FALSE)
-  }
+  p<-plot_customization(p,is_legend,is_color,means_long$Group)
   
   return(p)
 }
@@ -405,17 +412,8 @@ server <- function(input, output) {
             theme_minimal() +
             theme(plot.margin = margin(t = 10, r = 10), plot.title = element_text(hjust = 0.5))
           
-          if (is_color) {
-            p <- p + geom_line(aes(color = observation))
-          } else {
-            p <- p + geom_line(color = "black")
-          }
+          p<-plot_customization(p,is_legend,is_color,tidy_df$observation)
           
-          if (is_legend) {
-            p <- p + scale_color_discrete(name = "Observation") #nie dziala, powinna sie pokazywac legenda, nawet jak kolor czarny
-          } else {
-            p <- p + guides(color = FALSE)
-          }
           return(p)
         })
         return(plots)
