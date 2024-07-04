@@ -276,7 +276,7 @@ server <- function(input, output) {
         p("\n"),
         a("CRAN rmfanova package", href = "https://cran.r-project.org/web/packages/rmfanova/index.html"),
         p("\n"),
-        p("Authors: Katarzyna KuryĹ‚o & Ĺukasz Smaga",class="author-text")
+        p("Authors: Katarzyna KuryÄąâ€šo & ÄąÂukasz Smaga",class="author-text")
          )
       )
     #)
@@ -329,7 +329,7 @@ server <- function(input, output) {
   
   output$data_table <- DT::renderDataTable({
     req(data())
-    return(DT::datatable(data()$df, options = list(dom = 't',scrollX = TRUE)))
+    return(DT::datatable(data()$df, options = list(scrollX = TRUE)))
   })
   
   output$data_table_box <- renderUI({
