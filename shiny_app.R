@@ -53,7 +53,7 @@ ssa_point <- function(x, values = FALSE,
   means_gr <- sapply(x, colMeans)
   means_all <- rowMeans(means_gr)
   ssa <- n * rowSums((means_gr - means_all)^2)
-
+  
   t<-1:length(ssa)
   SSA<-ssa
   p <- ggplot() +
@@ -99,8 +99,8 @@ f_point <- function(x, values = FALSE,
 ui <- dashboardPage(
   help = NULL,
   header = dashboardHeader(
-             tags$h4(style={'margin-top:10px;'}, "Functional repeated measures analysis of variance") # margin-left:100px; text-align: center;
-    ),
+    tags$h4(style={'margin-top:10px;'}, "Functional repeated measures analysis of variance") # margin-left:100px; text-align: center;
+  ),
   #dashboardHeader("Functional repeated measures analysis of variance"),
   dashboardSidebar(
     sidebarMenu(
@@ -114,18 +114,18 @@ ui <- dashboardPage(
               accept = c("text/csv",
                          "text/comma-separated-values,text/plain",
                          ".csv")
-              ),
+    ),
     tags$hr(),
     checkboxInput("header", "Header", TRUE),
-    radioButtons("sep", "Separator",
+    radioButtons("sep", "Separator:",
                  choices = c(Comma = ",",
                              Semicolon = ";",
                              Tab = "\t"),
                  selected = ","),
-    radioButtons("quote", "Quote",
+    radioButtons("quote", "Quote:",
                  choices = c(None = "",
-                             "Double Quote" = '"',
-                             "Single Quote" = "'"),
+                             "Double" = '"',
+                             "Single" = "'"),
                  selected = '"'),
     tags$hr()
   ),
@@ -263,22 +263,22 @@ server <- function(input, output) {
       }
       ")
       ),
-    #   #br(),
-    #    div(
-    #      class = "info-box",
-    #      #width=30,
-         box(width=12,
-              collapsible = FALSE,
-        p("Functional data analysis (FDA) is a branch of statistics which analyzes observations treated as functions, curves, or surfaces. To represent the data in such a way, one needs only to measure some variable over time or space, which is a scenario encountered in many fields. Then the discrete data observed at so-called design time points can be transformed into functional data. Such a representation allows us to avoid many problems of classical multivariate statistical methods, for example, the curse of dimensionality and missing data. ", class = "text-justified"),
-        p("To compare the results for different samples, we thus consider functional repeated measures analysis of variance. For this purpose, a pointwise test statistic is constructed by adapting the classical test statistic for one-way repeated measures analysis of variance to the functional data framework. By integrating and taking the supremum of the pointwise test statistic, we create two global test statistics. Apart from verifying the general null hypothesis on the equality of mean functions corresponding to different objects, we also propose a simple method for post hoc analysis.", class = "text-justified"),
-        p("Feel free to explore these resources for more information:"),
-        a("Functional repeated measures analysis of variance and its application article", href = "https://arxiv.org/abs/2306.03883"),
-        p("\n"),
-        a("CRAN rmfanova package", href = "https://cran.r-project.org/web/packages/rmfanova/index.html"),
-        p("\n"),
-        p("Authors: Katarzyna KuryÄąâ€šo & ÄąÂukasz Smaga",class="author-text")
-         )
+      #   #br(),
+      #    div(
+      #      class = "info-box",
+      #      #width=30,
+      box(width=12,
+          collapsible = FALSE,
+          p("Functional data analysis (FDA) is a branch of statistics which analyzes observations treated as functions, curves, or surfaces. To represent the data in such a way, one needs only to measure some variable over time or space, which is a scenario encountered in many fields. Then the discrete data observed at so-called design time points can be transformed into functional data. Such a representation allows us to avoid many problems of classical multivariate statistical methods, for example, the curse of dimensionality and missing data. ", class = "text-justified"),
+          p("To compare the results for different samples, we thus consider functional repeated measures analysis of variance. For this purpose, a pointwise test statistic is constructed by adapting the classical test statistic for one-way repeated measures analysis of variance to the functional data framework. By integrating and taking the supremum of the pointwise test statistic, we create two global test statistics. Apart from verifying the general null hypothesis on the equality of mean functions corresponding to different objects, we also propose a simple method for post hoc analysis.", class = "text-justified"),
+          p("Feel free to explore these resources for more information:"),
+          a("Functional repeated measures analysis of variance and its application article", href = "https://arxiv.org/abs/2306.03883"),
+          p("\n"),
+          a("CRAN rmfanova package", href = "https://cran.r-project.org/web/packages/rmfanova/index.html"),
+          p("\n"),
+          p("Authors: Katarzyna KuryĹ‚o & Ĺukasz Smaga",class="author-text")
       )
+    )
     #)
   })
   
@@ -394,35 +394,35 @@ server <- function(input, output) {
     is_color <- input$color
     x_axis <- input$x_axis
     y_axis <- input$y_axis
-  
+    
     input_df_plots_ggplot <- reactive({
-        req(data())
-        df <- data()$df
-        splited_df <- split(df[, -1], df[, 1])
-        plots <- lapply(1:length(splited_df), function(i) 
-        {
-          df_group<-as.data.frame((splited_df[[i]]))
-          df_group$observation <- factor(1:nrow(df_group))
-          tidy_df <- pivot_longer(df_group, cols = -observation, values_to = "value")
-          #tidy_df$name <- factor(tidy_df$name, levels = unique(tidy_df$name))
-          unique_names <- unique(tidy_df$name)
-          tidy_df$name <- match(tidy_df$name, unique_names)
-          p<-ggplot(tidy_df, aes(x = name, y = value, group = observation)) +
-            labs(x = x_axis, y = y_axis, title = paste("Group ", i)) +
-            theme_minimal() +
-            theme(plot.margin = margin(t = 10, r = 10), plot.title = element_text(hjust = 0.5))
-          
-          p<-plot_customization(p,is_legend,is_color,tidy_df$observation)
-          
-          return(p)
-        })
-        return(plots)
+      req(data())
+      df <- data()$df
+      splited_df <- split(df[, -1], df[, 1])
+      plots <- lapply(1:length(splited_df), function(i) 
+      {
+        df_group<-as.data.frame((splited_df[[i]]))
+        df_group$observation <- factor(1:nrow(df_group))
+        tidy_df <- pivot_longer(df_group, cols = -observation, values_to = "value")
+        #tidy_df$name <- factor(tidy_df$name, levels = unique(tidy_df$name))
+        unique_names <- unique(tidy_df$name)
+        tidy_df$name <- match(tidy_df$name, unique_names)
+        p<-ggplot(tidy_df, aes(x = name, y = value, group = observation)) +
+          labs(x = x_axis, y = y_axis, title = paste("Group ", i)) +
+          theme_minimal() +
+          theme(plot.margin = margin(t = 10, r = 10), plot.title = element_text(hjust = 0.5))
+        
+        p<-plot_customization(p,is_legend,is_color,tidy_df$observation)
+        
+        return(p)
+      })
+      return(plots)
     })
     
     output$input_df_plots <- renderUI({
-        ggplotly_plots <- lapply(input_df_plots_ggplot(), function(plot) {
-          div(br(), ggplotly(plot))
-        })
+      ggplotly_plots <- lapply(input_df_plots_ggplot(), function(plot) {
+        div(br(), ggplotly(plot))
+      })
       return(ggplotly_plots)
     })
     
@@ -488,7 +488,7 @@ server <- function(input, output) {
         print(f_statistics_ggplot())
         dev.off()
       })
-  
+    
   })
   
   observeEvent(input$hyp_test_button, {
@@ -554,16 +554,16 @@ server <- function(input, output) {
       res <- rmfanova_result()
       # div(
       #   style = "margin: 5px;",
-        box(
-          title = "Overall p-values",
-          status = "primary",
-          solidHeader = TRUE,
-          #width = "auto",
-          background = "white",
-          collapsible = FALSE,
-          width=12,
-          DT::dataTableOutput("p_values")
-        )
+      box(
+        title = "Overall p-values",
+        status = "primary",
+        solidHeader = TRUE,
+        #width = "auto",
+        background = "white",
+        collapsible = FALSE,
+        width=12,
+        DT::dataTableOutput("p_values")
+      )
       #)
     })
     
@@ -577,16 +577,16 @@ server <- function(input, output) {
       res <- rmfanova_result()
       # div(
       #   style = "margin: 5px;",
-        box(
-          title = "Pairwise comparison p-values",
-          status = "primary",
-          solidHeader = TRUE,
-          #width = "auto",
-          background = "white",
-          collapsible = FALSE,
-          width=12,
-          DT::dataTableOutput("p_values_pc")
-        )
+      box(
+        title = "Pairwise comparison p-values",
+        status = "primary",
+        solidHeader = TRUE,
+        #width = "auto",
+        background = "white",
+        collapsible = FALSE,
+        width=12,
+        DT::dataTableOutput("p_values_pc")
+      )
       #)
     })
   })
